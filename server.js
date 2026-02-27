@@ -6,10 +6,15 @@ const cors = require("cors");
 const path = require("path");
 const admin = require("firebase-admin");
 
-const serviceAccount = require("./firebase-service.json");
-
+// 🔥 Firebase Admin using Render Environment Variables
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert({
+    projectId: process.env.FB_PROJECT_ID,
+    clientEmail: process.env.FB_CLIENT_EMAIL,
+    privateKey: process.env.FB_PRIVATE_KEY
+      ? process.env.FB_PRIVATE_KEY.replace(/\\n/g, "\n")
+      : undefined
+  }),
   databaseURL: "https://nj777-2756c-default-rtdb.firebaseio.com"
 });
 
@@ -23,7 +28,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
 
+// ======================
 // Helper functions
+// ======================
+
 async function addPlayer(player) {
   const ref = db.ref("players");
   const newRef = ref.push();
@@ -36,7 +44,10 @@ async function getPlayers() {
   return snapshot.val() || {};
 }
 
+// ======================
 // Routes
+// ======================
+
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
@@ -68,26 +79,40 @@ app.get("/add-test-player", async (req, res) => {
 const gameRoutes = require("./routes/gameRoutes");
 app.use("/game", gameRoutes);
 
+// ======================
 // Socket.IO
+// ======================
+
 const io = new Server(server, { cors: { origin: "*" } });
 
 io.on("connection", (socket) => {
   console.log("Player connected:", socket.id);
 
   socket.on("joinGame", (data) => {
-    console.log("Player joined:", data.name);
     io.emit("adminUpdate", { action: "join", player: data.name });
   });
 
   socket.on("spin", (data) => {
-    io.emit("adminUpdate", { action: "spin", player: data.name, result: data.result });
+    io.emit("adminUpdate", {
+      action: "spin",
+      player: data.name,
+      result: data.result
+    });
   });
 
   socket.on("disconnect", () => {
-    console.log("Player disconnected:", socket.id);
-    io.emit("adminUpdate", { action: "leave", playerId: socket.id });
+    io.emit("adminUpdate", {
+      action: "leave",
+      playerId: socket.id
+    });
   });
 });
 
+// ======================
+// Start Server
+// ======================
+
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
