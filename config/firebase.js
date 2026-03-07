@@ -1,8 +1,12 @@
 // config/firebase.js
 const admin = require("firebase-admin");
 
-// Initialize Firebase only once
 if (!admin.apps.length) {
+  if (!process.env.FB_DATABASE_URL) {
+    console.error("❌ FB_DATABASE_URL is missing!");
+    process.exit(1); // stop server if missing
+  }
+
   admin.initializeApp({
     credential: admin.credential.cert({
       projectId: process.env.FB_PROJECT_ID,
@@ -16,6 +20,6 @@ if (!admin.apps.length) {
 }
 
 const db = admin.database();
-console.log("✅ Firebase initialized successfully");
+console.log("✅ Firebase initialized successfully with DB:", process.env.FB_DATABASE_URL);
 
 module.exports = db;
