@@ -14,6 +14,10 @@ const path = require("path");
 const app = express();
 const server = http.createServer(app);
 
+const adminRoutes = require("./routes/adminRoutes");
+
+app.use("/admin-api", adminRoutes);
+
 // ======================
 // Middlewares
 // ======================
