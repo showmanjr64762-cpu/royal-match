@@ -9,7 +9,7 @@ admin.initializeApp({
 });
 
 
-
+const db = admin.firestore();
 module.exports = db;
 
 
@@ -31,6 +31,6 @@ if (!admin.apps.length) {
   });
 }
 
-const db = admin.database();
+
 console.log("✅ Firebase initialized successfully with DB:", process.env.FB_DATABASE_URL);
 
