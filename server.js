@@ -147,3 +147,15 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+fetch("https://YOUR-RENDER-URL/api/update", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    playerId: "player123",
+    score: 500,
+    coins: 20
+  })
+});
