@@ -1,3 +1,4 @@
+// server.js
 require("dotenv").config();
 
 const express = require("express");
@@ -7,18 +8,15 @@ const cors = require("cors");
 const path = require("path");
 
 // ======================
-// Firebase
+// Firebase Admin
 // ======================
-const db = require("./config/firebase"); // <-- Fixed: import db
+const db = require("./config/firebase"); // use the fixed firebase.js
 
 // ======================
-// Create App & Server
+// Express App & Server
 // ======================
 const app = express();
 const server = http.createServer(app);
-
-const adminRoutes = require("./routes/adminRoutes");
-app.use("/admin-api", adminRoutes);
 
 // ======================
 // Middlewares
@@ -27,6 +25,28 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));
+
+// ======================
+// Routes
+// ======================
+const adminRoutes = require("./routes/adminRoutes");
+const gameRoutes = require("./routes/gameRoutes");
+
+app.use("/admin-api", adminRoutes);
+app.use("/game", gameRoutes);
+
+// Home & Admin Pages
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+app.get("/admin", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin-login.html"));
+});
+
+app.get("/admin-DasHBoaRd", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "admin-DasHBoaRd.html"));
+});
 
 // ======================
 // Helper Functions
@@ -43,45 +63,7 @@ async function getPlayers() {
   return snapshot.val() || {};
 }
 
-// ======================
-// Routes
-// ======================
-
-// Home
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-// Admin Login Page
-app.get("/admin", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin-login.html"));
-});
-
-// Admin Dashboard (after login)
-app.get("/admin-dashboard", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin-dashboard.html"));
-});
-
-// Admin Login API
-app.post("/admin-login", (req, res) => {
-  const { password } = req.body;
-  if (password === process.env.ADMIN_PASSWORD) {
-    return res.json({ success: true });
-  }
-  res.status(401).json({ success: false });
-});
-
-// Get Players
-app.get("/admin/players", async (req, res) => {
-  try {
-    const players = await getPlayers();
-    res.json(players);
-  } catch (error) {
-    res.status(500).json({ error: "Failed to fetch players" });
-  }
-});
-
-// Add Test Player
+// Test player endpoint
 app.get("/add-test-player", async (req, res) => {
   try {
     const player = { name: "Test Player", coins: 1000 };
@@ -92,43 +74,19 @@ app.get("/add-test-player", async (req, res) => {
   }
 });
 
-// Game Routes
-const gameRoutes = require("./routes/gameRoutes");
-app.use("/game", gameRoutes);
-
 // ======================
 // Socket.IO
 // ======================
 const io = new Server(server, { cors: { origin: "*" } });
+
+// Use the modular gameSocket handler
 const gameSocket = require("./sockets/gameSocket");
-
-io.on("connection", (socket) => {
-  console.log("Player connected:", socket.id);
-
-  socket.on("joinGame", (data) => {
-    io.emit("adminUpdate", { action: "join", player: data.name });
-  });
-
-  socket.on("spin", (data) => {
-    io.emit("adminUpdate", { action: "spin", player: data.name, result: data.result });
-  });
-
-  socket.on("disconnect", () => {
-    io.emit("adminUpdate", { action: "leave", playerId: socket.id });
-  });
-});
+gameSocket(io);
 
 // ======================
 // Start Server
 // ======================
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-fetch("https://YOUR-RENDER-URL/api/update", {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ playerId: "player123", score: 500, coins: 20 })
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
-// ======================
-// Remove hardcoded fetch
-// ======================
-// fetch("https://YOUR-RENDER-URL/api/update", {...}) <-- removed
