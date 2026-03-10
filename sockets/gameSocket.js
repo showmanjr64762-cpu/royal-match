@@ -46,8 +46,5 @@ function gameSocket(io) {
     });
   });
 }
-// server.js
-const gameSocket = require("./sockets/gameSocket");
-gameSocket(io); // instead of defining io.on(...) inline
 
 module.exports = gameSocket;
