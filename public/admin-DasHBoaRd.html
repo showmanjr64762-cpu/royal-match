@@ -3,55 +3,58 @@
 <button onclick="loadPlayers()">Load Players</button>
 
 <table border="1">
-<thead>
-<tr>
-<th>Player</th>
-<th>Coins</th>
-<th>Add Coins</th>
-</tr>
-</thead>
-
-<tbody id="playersTable"></tbody>
+  <thead>
+    <tr>
+      <th>Player</th>
+      <th>Coins</th>
+      <th>Add Coins</th>
+    </tr>
+  </thead>
+  <tbody id="playersTable"></tbody>
 </table>
 
 <script>
-async function loadPlayers(){
+async function loadPlayers() {
+  try {
+    const res = await fetch("/admin-api/players");
+    if (!res.ok) throw new Error("Network error: " + res.status);
 
- const res = await fetch("/admin-api/players");
- const players = await res.json();
+    const players = await res.json();
+    console.log("Players loaded:", players);
 
- const table = document.getElementById("playersTable");
- table.innerHTML="";
+    const table = document.getElementById("playersTable");
+    table.innerHTML = "";
 
- for(const id in players){
-
-   const p = players[id];
-
-   table.innerHTML += `
-   <tr>
-     <td>${p.name || p.username}</td>
-     <td>${p.coins}</td>
-     <td>
-       <button onclick="addCoins('${id}')">+100</button>
-     </td>
-   </tr>
-   `;
- }
+    for (const id in players) {
+      const p = players[id];
+      table.innerHTML += `
+        <tr>
+          <td>${p.name || p.username}</td>
+          <td>${p.coins}</td>
+          <td>
+            <button onclick="addCoins('${id}')">+100</button>
+          </td>
+        </tr>
+      `;
+    }
+  } catch (err) {
+    console.error("Failed to load players:", err);
+    alert("Error loading players: " + err.message);
+  }
 }
 
-async function addCoins(playerId){
-
- await fetch("/admin-api/add-coins",{
-   method:"POST",
-   headers:{
-     "Content-Type":"application/json"
-   },
-   body:JSON.stringify({
-     playerId:playerId,
-     coins:100
-   })
- });
-
- loadPlayers();
+async function addCoins(playerId) {
+  try {
+    const res = await fetch("/admin-api/add-coins", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playerId: playerId, coins: 100 })
+    });
+    if (!res.ok) throw new Error("Failed to add coins: " + res.status);
+    await loadPlayers(); // reload players after adding coins
+  } catch (err) {
+    console.error(err);
+    alert(err.message);
+  }
 }
 </script>
