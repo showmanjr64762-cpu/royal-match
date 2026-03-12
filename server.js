@@ -1,19 +1,36 @@
 // server.js
-require("dotenv").config();
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
-const cors = require("cors");
-const path = require("path");
+const express = require('express');
+const admin = require('firebase-admin');
 
-// ======================
-// Firebase Admin
-// ======================
-const db = require("./config/firebase");
+const app = express(); // ← app must be initialized first
 
+// Parse Firebase key from environment variable
+if (!process.env.FIREBASE_KEY) {
+  console.error('❌ FIREBASE_KEY environment variable is missing!');
+  process.exit(1);
+}
 
+let serviceAccount;
+try {
+  serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
+} catch (err) {
+  console.error('❌ Invalid FIREBASE_KEY JSON:', err.message);
+  process.exit(1);
+}
 
-// This assumes you already have firebase-admin initialized
+// Initialize Firebase
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+const db = admin.firestore();
+
+// Basic route to check server
+app.get('/', (req, res) => {
+  res.send('Server is running!');
+});
+
+// Test Firebase connection
 app.get('/test-firebase', async (req, res) => {
   try {
     const doc = await db.collection('test').doc('ping').get();
@@ -26,78 +43,7 @@ app.get('/test-firebase', async (req, res) => {
     res.status(500).send('❌ Firebase error: ' + err.message);
   }
 });
-// ======================
-// Express App & Server
-// ======================
-const app = express();
 
-app.get("/add-test-player", async (req, res) => {
-  try {
-
-    const player = {
-      name: "Test Player",
-      coins: 1000
-    };
-
-    const db = require("./config/firebase");
-
-    const ref = db.ref("players");
-    const newPlayer = ref.push();
-
-    await newPlayer.set(player);
-
-    res.send("Test player added!");
-
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error adding player");
-  }
-});
-const server = http.createServer(app);
-
-// ======================
-// Middlewares
-// ======================
-app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
-
-// ======================
-// Routes
-// ======================
-const adminRoutes = require("./routes/adminRoutes");
-const gameRoutes = require("./routes/gameRoutes");
-
-app.use("/admin-api", adminRoutes);
-app.use("/game", gameRoutes);
-
-// ======================
-// Home & Admin Pages
-// ======================
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
-});
-
-app.get("/admin", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin-login.html"));
-});
-
-app.get("/admin-DasHBoaRd", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin-DasHBoaRd.html"));
-});
-
-// ======================
-// Socket.IO (optional)
-// ======================
-const io = new Server(server, { cors: { origin: "*" } });
-const gameSocket = require("./sockets/gameSocket");
-gameSocket(io);
-
-// ======================
-// Start Server
-// ======================
+// Start server
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
