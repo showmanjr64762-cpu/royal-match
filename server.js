@@ -11,6 +11,21 @@ const path = require("path");
 // ======================
 const db = require("./config/firebase");
 
+
+
+// This assumes you already have firebase-admin initialized
+app.get('/test-firebase', async (req, res) => {
+  try {
+    const doc = await db.collection('test').doc('ping').get();
+    if (doc.exists) {
+      res.send('✅ Firebase is working! Data found.');
+    } else {
+      res.send('⚠️ Firebase connected, but no data found.');
+    }
+  } catch (err) {
+    res.status(500).send('❌ Firebase error: ' + err.message);
+  }
+});
 // ======================
 // Express App & Server
 // ======================
