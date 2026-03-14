@@ -207,6 +207,7 @@
       justify-content: center;
       padding: 1rem;
       backdrop-filter: blur(10px);
+      overflow-y: auto;
     }
 
     .auth-overlay.active {
@@ -498,6 +499,7 @@
       gap: 0.75rem;
       justify-content: center;
       margin-bottom: 1.5rem;
+      flex-wrap: wrap;
     }
 
     .otp-input {
@@ -538,6 +540,7 @@
       justify-content: center;
       padding: 1rem;
       backdrop-filter: blur(5px);
+      overflow-y: auto;
     }
 
     .profile-modal-overlay.active {
@@ -803,12 +806,16 @@
       position: relative;
       z-index: 50;
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
     .header-left {
       display: flex;
       align-items: center;
       gap: 0.75rem;
+      flex: 1;
+      min-width: 200px;
     }
 
     .profile-avatar {
@@ -825,6 +832,7 @@
       cursor: pointer;
       transition: transform 0.2s;
       overflow: hidden;
+      flex-shrink: 0;
     }
 
     .profile-avatar:hover {
@@ -840,6 +848,7 @@
     .user-info {
       display: flex;
       flex-direction: column;
+      min-width: 100px;
     }
 
     .username {
@@ -862,6 +871,7 @@
       align-items: center;
       gap: 0.5rem;
       box-shadow: 0 0 20px rgba(212, 175, 55, 0.2);
+      flex-shrink: 0;
     }
 
     .coin-icon {
@@ -892,6 +902,7 @@
     .header-actions {
       display: flex;
       gap: 0.5rem;
+      flex-shrink: 0;
     }
 
     .header-btn {
@@ -935,6 +946,39 @@
     @keyframes bounce {
       0%, 100% { transform: scale(1); }
       50% { transform: scale(1.2); }
+    }
+
+    .auth-buttons-header {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      justify-content: center;
+      flex-basis: 100%;
+      padding: 0.5rem 0;
+      border-top: 1px solid rgba(212, 175, 55, 0.2);
+    }
+
+    .auth-btn-header {
+      padding: 0.6rem 1.5rem;
+      background: linear-gradient(145deg, #d4af37, #ffd700);
+      border: none;
+      border-radius: 10px;
+      color: #000;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 0.9rem;
+    }
+
+    .auth-btn-header:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4);
+    }
+
+    .auth-btn-header.secondary {
+      background: transparent;
+      border: 2px solid #d4af37;
+      color: #ffd700;
     }
 
     .announcement-bar {
@@ -1036,7 +1080,7 @@
 
     .shop-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 1.5rem;
       margin-top: 2rem;
     }
@@ -1112,7 +1156,7 @@
 
     .offers-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 1.5rem;
       margin-top: 2rem;
     }
@@ -1376,14 +1420,57 @@
       display: grid;
       grid-template-columns: 1fr 280px;
       gap: 1rem;
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       width: 100%;
     }
 
-    @media (max-width: 968px) {
+    @media (max-width: 1024px) {
       .lobby-content {
         grid-template-columns: 1fr;
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .lobby-content {
+        grid-template-columns: 1fr;
+        padding: 0.75rem;
+      }
+      
+      .leaderboard-panel {
+        order: -1;
+        position: static;
+      }
+      
+      .games-grid {
+        grid-template-columns: 1fr;
+        max-width: 300px;
+      }
+
+      .offers-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .shop-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .header-left {
+        min-width: auto;
+      }
+
+      .auth-buttons-header {
+        gap: 0.25rem;
+      }
+
+      .auth-btn-header {
+        padding: 0.5rem 1rem;
+        font-size: 0.8rem;
       }
     }
 
@@ -1727,6 +1814,8 @@
       align-items: center;
       position: relative;
       z-index: 50;
+      flex-wrap: wrap;
+      gap: 0.5rem;
     }
 
     .nav-item {
@@ -1741,6 +1830,8 @@
       border: none;
       background: none;
       font-family: inherit;
+      flex: 1;
+      min-width: 60px;
     }
 
     .nav-item.active {
@@ -1778,6 +1869,7 @@
       justify-content: center;
       padding: 1rem;
       backdrop-filter: blur(5px);
+      overflow-y: auto;
     }
 
     .modal-overlay.active {
@@ -2340,6 +2432,7 @@
       gap: 0.5rem;
       justify-content: center;
       margin-bottom: 0.5rem;
+      flex-wrap: wrap;
     }
 
     .action-btn {
@@ -2354,6 +2447,7 @@
       letter-spacing: 0.05em;
       border: none;
       max-width: 150px;
+      min-width: 100px;
     }
 
     .action-btn:active {
@@ -2798,44 +2892,67 @@
 
     .hidden { display: none !important; }
 
-    @media (max-width: 768px) {
-      .lobby-content {
-        grid-template-columns: 1fr;
-        padding: 0.75rem;
-      }
-      
-      .leaderboard-panel {
-        order: -1;
-        position: static;
-      }
-      
-      .games-grid {
-        grid-template-columns: 1fr;
-        max-width: 300px;
+    @media (max-width: 480px) {
+      .lobby-header {
+        padding: 0.5rem;
       }
 
-      .offers-grid {
-        grid-template-columns: 1fr;
+      .header-left {
+        min-width: 150px;
       }
 
-      .shop-grid {
-        grid-template-columns: 1fr;
+      .user-info {
+        min-width: 80px;
       }
 
-      .form-row {
-        grid-template-columns: 1fr;
+      .username {
+        font-size: 0.8rem;
       }
 
-      .card-rank {
+      .balance-container {
+        padding: 0.3rem 0.75rem;
+      }
+
+      .balance-amount {
         font-size: 0.9rem;
       }
 
+      .header-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 1rem;
+      }
+
+      .auth-buttons-header {
+        gap: 0.25rem;
+      }
+
+      .auth-btn-header {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.7rem;
+      }
+
+      .card-rank {
+        font-size: 0.8rem;
+      }
+
       .card-suit-small {
-        font-size: 0.75rem;
+        font-size: 0.65rem;
       }
 
       .card-center {
-        font-size: 1.8rem;
+        font-size: 1.5rem;
+      }
+
+      .game-screen {
+        padding: 3rem 0.75rem 1rem;
+      }
+
+      .action-btn {
+        max-width: 120px;
+        min-width: 90px;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.7rem;
       }
     }
 
@@ -3351,8 +3468,6 @@
               <p>Available 24/7</p>
             </div>
           </div>
-          
-          </div>
         </div>
 
         <button class="support-btn" onclick="openSupportBot()">💬 Open AI Support Chat</button>
@@ -3382,6 +3497,10 @@
           <span class="notification-badge">3</span>
         </button>
         <button class="header-btn" title="Settings" onclick="openModal('settingsModal')">⚙️</button>
+      </div>
+      <div class="auth-buttons-header" id="authButtonsHeader" style="display: none;">
+        <button class="auth-btn-header" onclick="showLoginForm()">Login</button>
+        <button class="auth-btn-header secondary" onclick="showRegisterForm()">Register</button>
       </div>
     </header>
 
@@ -3584,7 +3703,29 @@
       if (savedUser) {
         currentUser = JSON.parse(savedUser);
         updateHeaderForUser();
+      } else {
+        showAuthButtons();
       }
+    }
+
+    function showAuthButtons() {
+      document.getElementById('authButtonsHeader').style.display = 'flex';
+    }
+
+    function hideAuthButtons() {
+      document.getElementById('authButtonsHeader').style.display = 'none';
+    }
+
+    function showLoginForm() {
+      switchAuthTab('login');
+      document.getElementById('authOverlay').classList.add('active');
+      audio.playClick();
+    }
+
+    function showRegisterForm() {
+      switchAuthTab('register');
+      document.getElementById('authOverlay').classList.add('active');
+      audio.playClick();
     }
 
     function switchAuthTab(tab) {
@@ -3676,6 +3817,7 @@
       saveUserData();
       closeAuth();
       updateHeaderForUser();
+      hideAuthButtons();
       showPopup('Registration Successful!', 'Welcome to Royal Match, ' + currentUser.username + '!');
     }
 
@@ -3700,6 +3842,7 @@
         if (!user) saveUserData();
         closeAuth();
         updateHeaderForUser();
+        hideAuthButtons();
         showPopup('Login Successful!', 'Welcome back, ' + currentUser.username + '!');
       } else {
         alert('Invalid credentials!');
@@ -3718,6 +3861,7 @@
       
       closeAuth();
       updateHeaderForUser();
+      hideAuthButtons();
     }
 
     function skipAuth() {
@@ -3730,7 +3874,6 @@
 
     function closeAuth() {
       document.getElementById('authOverlay').classList.remove('active');
-      document.getElementById('appContainer').classList.add('visible');
       audio.playClick();
     }
 
@@ -3763,7 +3906,7 @@
 
     function openProfile() {
       if (!currentUser) {
-        document.getElementById('authOverlay').classList.add('active');
+        showLoginForm();
         return;
       }
       
@@ -3816,7 +3959,7 @@
 
     function logout() {
       if (currentUser?.isGuest) {
-        document.getElementById('authOverlay').classList.add('active');
+        showLoginForm();
         closeProfile();
         return;
       }
@@ -3827,7 +3970,7 @@
       document.getElementById('headerUsername').textContent = 'Guest';
       document.getElementById('headerAvatarIcon').textContent = '👤';
       document.getElementById('userStatus').textContent = 'Tap to login';
-      document.getElementById('authOverlay').classList.add('active');
+      showAuthButtons();
     }
 
     let popupTimeout;
@@ -4246,12 +4389,7 @@
         
         setTimeout(() => {
           document.getElementById('splashScreen').style.display = 'none';
-          
-          if (!currentUser) {
-            document.getElementById('authOverlay').classList.add('active');
-          } else {
-            document.getElementById('appContainer').classList.add('visible');
-          }
+          document.getElementById('appContainer').classList.add('visible');
         }, 700);
       }, 10000);
     }

@@ -37,11 +37,85 @@ app.use('/api/', limiter);
 
 // ==================== SOCKET.IO REAL-TIME ====================
 
-const connectedUsers = {};
-const adminConnections = new Set();
+const express = require("express");
+const http = require("http");
+const { Server } = require("socket.io");
 
-io.on('connection', (socket) => {
-  console.log('User connected:', socket.id);
+
+let onlinePlayers = {};
+let rooms = {};
+
+io.on("connection",(socket)=>{
+
+  console.log("Player connected:",socket.id);
+
+  // Player joins
+  socket.on("player_join",(data)=>{
+
+    onlinePlayers[socket.id] = {
+      uid:data.uid,
+      username:data.username,
+      coins:data.coins
+    };
+
+    io.emit("online_players",Object.values(onlinePlayers));
+  });
+
+  // Create room
+  socket.on("create_room",(data)=>{
+
+    const roomId = "room_"+Math.floor(Math.random()*100000);
+
+    rooms[roomId] = {
+      players:[socket.id],
+      bet:data.bet
+    };
+
+    socket.join(roomId);
+
+    socket.emit("room_created",roomId);
+
+  });
+
+  // Join room
+  socket.on("join_room",(roomId)=>{
+
+    if(rooms[roomId]){
+
+      rooms[roomId].players.push(socket.id);
+
+      socket.join(roomId);
+
+      io.to(roomId).emit("room_players",rooms[roomId].players);
+
+    }
+
+  });
+
+  // Game result
+  socket.on("game_result",(data)=>{
+
+    const roomId = data.room;
+
+    io.to(roomId).emit("game_result",data);
+
+  });
+
+  socket.on("disconnect",()=>{
+
+    delete onlinePlayers[socket.id];
+
+    io.emit("online_players",Object.values(onlinePlayers));
+
+    console.log("Player disconnected");
+
+  });
+
+});
+
+server.listen(3000,()=>{
+  console.log("Game server running");
+});
 
   // User joins with their ID
   socket.on('user:join', (data) => {
@@ -74,7 +148,7 @@ io.on('connection', (socket) => {
     io.emit('users:online-count', Object.keys(connectedUsers).length);
     console.log('User disconnected:', socket.id);
   });
-});
+
 
 // ==================== AUTHENTICATION ====================
 
