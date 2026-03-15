@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+
+  
   <title>Royal Match - Premium Casino</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <style>
@@ -2878,8 +2880,12 @@
       0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px white); }
       50% { transform: scale(1.1); filter: drop-shadow(0 0 15px white); }
     }
+
+    
   </style>
 </head>
+
+
 <body class="theme-emerald">
   <div class="pattern-overlay"></div>
   <div class="particles" id="particles"></div>
@@ -2898,6 +2904,8 @@
     </div>
   </div>
 
+
+  
   <div class="auth-overlay" id="authOverlay">
     <div class="auth-container">
       <button class="close-auth" onclick="closeAuth()">×</button>
@@ -3018,6 +3026,8 @@
     </div>
   </div>
 
+
+  
   <div class="popup-overlay" id="successPopup">
     <div class="popup-content">
       <div class="popup-icon">✅</div>
@@ -3289,6 +3299,7 @@
       </div>
     </header>
 
+    
     <div class="lobby-content">
       <div class="games-section">
         <h2 class="section-title">
@@ -3460,6 +3471,11 @@
     let isInGame = false;
 
     // Mission System
+
+    socket.emit("user:join", {
+    userId: userId,
+    username: username
+});
     const MissionSystem = {
       getTodayString() {
         const today = new Date();
@@ -3496,6 +3512,8 @@
         };
       },
 
+      
+
       checkLoginStreak() {
         const data = this.getMissionData();
         const today = this.getTodayString();
@@ -3503,7 +3521,13 @@
         if (data.lastLoginDate === today) {
           return;
         }
+const SERVER = "https://royal-match.onrender.com";
 
+const socket = io(SERVER);
+
+socket.on("connect", () => {
+    console.log("Connected:", socket.id);
+});
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yesterdayString = yesterday.toISOString().split('T')[0];
