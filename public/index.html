@@ -13,12 +13,12 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    }
-
+html, body {
+  height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
     body {
       background: radial-gradient(ellipse at top, #064e3b 0%, #022c22 50%, #000000 100%);
       color: #fff;
@@ -4907,113 +4907,214 @@
       });
     }
 
-    function setupEventListeners() {
-      elements.betOptions.querySelectorAll('.bet-option').forEach((btn) => {
-        btn.addEventListener('click', () => selectBet(parseInt(btn.dataset.bet, 10)));
-      });
+   function setupEventListeners() {
+  elements.betOptions.querySelectorAll('.bet-option').forEach((btn) => {
+    btn.addEventListener('click', () => selectBet(parseInt(btn.dataset.bet, 10)));
+  });
 
-      elements.customBetBtn.addEventListener('click', () => {
-        const value = parseInt(elements.customBet.value, 10);
-        if (!Number.isNaN(value)) selectBet(value);
-      });
+  elements.customBetBtn.addEventListener('click', () => {
+    const value = parseInt(elements.customBet.value, 10);
+    if (!Number.isNaN(value)) selectBet(value);
+  });
 
-      elements.customBet.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          const value = parseInt(elements.customBet.value, 10);
-          if (!Number.isNaN(value)) selectBet(value);
-        }
-      });
-
-      elements.startBtn.addEventListener('click', startGame);
-      elements.cashoutBtn.addEventListener('click', cashout);
-      elements.continueBtn.addEventListener('click', continuePlaying);
-
-      elements.playAgainWin.addEventListener('click', resetGame);
-      elements.playAgainLose.addEventListener('click', resetGame);
-
-      document.getElementById('loginForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        handleLoginSubmit(this);
-      });
-
-      document.getElementById('registerForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        handleRegisterSubmit(this);
-      });
+  elements.customBet.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      const value = parseInt(elements.customBet.value, 10);
+      if (!Number.isNaN(value)) selectBet(value);
     }
+  });
 
+  elements.startBtn.addEventListener('click', startGame);
+  elements.cashoutBtn.addEventListener('click', cashout);
+  elements.continueBtn.addEventListener('click', continuePlaying);
+
+  elements.playAgainWin.addEventListener('click', resetGame);
+  elements.playAgainLose.addEventListener('click', resetGame);
+
+  // Auth & profile overlays
+  const authOverlay = document.querySelector('.auth-overlay');
+  const profileOverlay = document.querySelector('.profile-modal-overlay');
+
+  document.querySelectorAll('[data-open-auth]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      authOverlay && authOverlay.classList.add('active');
+    });
+  });
+
+  document.querySelectorAll('.close-auth').forEach(btn => {
+    btn.addEventListener('click', () => {
+      authOverlay && authOverlay.classList.remove('active');
+    });
+  });
+
+  document.querySelectorAll('.profile-close').forEach(btn => {
+    btn.addEventListener('click', () => {
+      profileOverlay && profileOverlay.classList.remove('active');
+    });
+  });
+
+  [authOverlay, profileOverlay].forEach(overlay => {
+    overlay && overlay.addEventListener('click', e => {
+      if (e.target === overlay) {
+        overlay.classList.remove('active');
+      }
+    });
+  });
+
+  document.getElementById('loginForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    handleLoginSubmit(this);
+  });
+
+  document.getElementById('registerForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    handleRegisterSubmit(this);
+  });
+}
+
+ // FRONTEND-ONLY DEMO VERSION (no server.php required)
     function handleLoginSubmit(form) {
-      const formData = new FormData(form);
+      const username = form.username.value.trim();
+      const password = form.password.value.trim();
       const errorContainer = document.getElementById('loginErrors');
       const successContainer = document.getElementById('loginSuccess');
-      
+
       errorContainer.classList.remove('active');
       successContainer.classList.remove('active');
+      errorContainer.innerHTML = '';
+      successContainer.innerHTML = '';
 
-      fetch('server.php', {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => response.text())
-      .then(data => {
-        if (data.includes('error')) {
-          const errors = data.match(/<li>(.*?)<\/li>/g) || [];
-          errorContainer.innerHTML = '<ul>' + errors.join('') + '</ul>';
-          errorContainer.classList.add('active');
-        } else if (data.includes('success')) {
-          successContainer.textContent = 'Login successful! Redirecting...';
-          successContainer.classList.add('active');
-          setTimeout(() => {
-            window.location.href = 'index.php';
-          }, 2000);
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        errorContainer.innerHTML = '<ul><li>An error occurred. Please try again.</li></ul>';
+      const errors = [];
+      if (!username) errors.push('Username is required');
+      if (!password) errors.push('Password is required');
+
+      if (errors.length) {
+        errorContainer.innerHTML = '<ul>' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
         errorContainer.classList.add('active');
-      });
+        return;
+      }
+
+      // Fake successful login and set currentUser
+      currentUser = {
+        username,
+        avatar: '👤',
+        isGuest: false,
+        id: 'USER' + Math.floor(Math.random() * 99999),
+        stats: { games: 0, wins: 0, winRate: 0 }
+      };
+
+      updateHeaderForUser();
+      successContainer.textContent = 'Login successful!';
+      successContainer.classList.add('active');
+
+      setTimeout(() => {
+        closeAuth();
+      }, 800);
     }
 
     function handleRegisterSubmit(form) {
-      const formData = new FormData(form);
+      const username = form.username.value.trim();
+      const email = form.email.value.trim();
+      const password1 = form.password_1.value.trim();
+      const password2 = form.password_2.value.trim();
       const errorContainer = document.getElementById('registerErrors');
       const successContainer = document.getElementById('registerSuccess');
-      
+
       errorContainer.classList.remove('active');
       successContainer.classList.remove('active');
+      errorContainer.innerHTML = '';
+      successContainer.innerHTML = '';
 
-      fetch('server.php', {
-        method: 'POST',
-        body: formData
-      })
-      .then(response => response.text())
-      .then(data => {
-        if (data.includes('error')) {
-          const errors = data.match(/<li>(.*?)<\/li>/g) || [];
-          errorContainer.innerHTML = '<ul>' + errors.join('') + '</ul>';
-          errorContainer.classList.add('active');
-        } else if (data.includes('success')) {
-          successContainer.textContent = 'Registration successful! Redirecting...';
-          successContainer.classList.add('active');
-          setTimeout(() => {
-            window.location.href = 'index.php';
-          }, 2000);
-        }
-      })
-      .catch(error => {
-        console.error('Error:', error);
-        errorContainer.innerHTML = '<ul><li>An error occurred. Please try again.</li></ul>';
+      const errors = [];
+      if (!username) errors.push('Username is required');
+      if (!email) errors.push('Email is required');
+      if (!password1) errors.push('Password is required');
+      if (password1 && password1.length < 6) errors.push('Password must be at least 6 characters');
+      if (password1 !== password2) errors.push('Passwords do not match');
+
+      if (errors.length) {
+        errorContainer.innerHTML = '<ul>' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
         errorContainer.classList.add('active');
-      });
+        return;
+      }
+
+      // Fake successful registration and log user in
+      currentUser = {
+        username,
+        avatar: '👤',
+        isGuest: false,
+        id: 'USER' + Math.floor(Math.random() * 99999),
+        stats: { games: 0, wins: 0, winRate: 0 }
+      };
+
+      updateHeaderForUser();
+      successContainer.textContent = 'Registration successful!';
+      successContainer.classList.add('active');
+
+      setTimeout(() => {
+        switchAuthTab('login');
+        closeAuth();
+      }, 800);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      initApp();
-      setupEventListeners();
-      updateUI();
-      generateMultiplierDisplay();
-    });
+
+
+ document.addEventListener('DOMContentLoaded', () => {
+  initApp();
+  setupEventListeners();
+  updateUI();
+  generateMultiplierDisplay();
+
+  // Handle splash screen auto-hide
+  const splash = document.querySelector('.splash-screen');
+  if (splash) {
+    // adjust timing if your loading animation is shorter/longer
+    setTimeout(() => {
+      splash.classList.add('fade-out');
+      setTimeout(() => {
+        splash.remove();
+      }, 700);
+    }, 10500); // 10.5 seconds
+  }
+});
+
+
   </script>
+
+<script>
+
+document.addEventListener('DOMContentLoaded', () => {
+  const splash = document.querySelector('.splash-screen');
+  if (splash) {
+    // match your loading animation duration (10s) + a bit extra
+    setTimeout(() => {
+      splash.classList.add('fade-out');
+      setTimeout(() => splash.remove(), 700);
+    }, 10500);
+  }
+
+
+    // Close auth
+    document.querySelectorAll('.close-auth').forEach(btn => {
+      btn.addEventListener('click', () => {
+        authOverlay?.classList.remove('active');
+      });
+    });
+
+    // Close profile
+    document.querySelectorAll('.profile-close').forEach(btn => {
+      btn.addEventListener('click', () => {
+        profileOverlay?.classList.remove('active');
+      });
+    });
+
+    // Close on overlay click
+    [authOverlay, profileOverlay].forEach(overlay => {
+      overlay?.addEventListener('click', e => {
+        if (e.target === overlay) overlay.classList.remove('active');
+      });
+    });
+  });
+</script>
 </body>
 </html>
