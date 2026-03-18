@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Royal Match - Premium Casino</title>
   
+
+  
   <!-- Favicon - Prevents 404 error -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑</text></svg>">
   
@@ -650,9 +652,11 @@
     
     try {
       // Try to connect to the backend
-      const backendUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:3000' 
-        : 'https://your-backend-url.onrender.com'; // REPLACE WITH YOUR RENDER BACKEND URL
+
+
+      // If you don't have a backend yet, use this:
+const backendUrl = null; // Disable Socket.io for now
+socket = null;
       
       socket = io(backendUrl, {
         transports: ['websocket', 'polling'],
@@ -684,5 +688,8 @@
 
   <!-- 4. Your game script -->
   <script src="script.js"></script>
+
+
+  
 </body>
 </html>

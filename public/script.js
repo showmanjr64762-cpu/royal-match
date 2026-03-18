@@ -1,4 +1,23 @@
 // Add this near your other routes in server.js
+// ========== FIX FOR "app is not defined" ERROR ==========
+// Create a safe reference to Firebase app
+let app = null;
+try {
+  if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length > 0) {
+    app = firebase.app();
+    console.log("✅ Firebase app reference created");
+  } else {
+    console.log("⚠️ Firebase not available - using offline mode");
+  }
+} catch (e) {
+  console.log("⚠️ Firebase app error:", e.message);
+}
+
+// Make app globally available
+window.app = app;
+
+// ========== REST OF YOUR ORIGINAL CODE STARTS BELOW ==========
+// [Your existing script.js code continues here...]
 app.get('/favicon.ico', (req, res) => {
   res.set('Content-Type', 'image/svg+xml');
   res.send('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">👑</text></svg>');
@@ -151,7 +170,8 @@ if (typeof firebase === 'undefined') {
   
   // Check if Firebase is initialized
   try {
-    const app = firebase.app();
+  // Check if firebase exists first
+const app = firebase && firebase.apps.length ? firebase.app() : null;
     console.log("✅ Firebase initialized:", app.name);
   } catch (e) {
     console.error("❌ Firebase not initialized:", e.message);
