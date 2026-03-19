@@ -1,5 +1,5 @@
-// ===== ROYAL MATCH - COMPLETE MULTIPLAYER WITH FIREBASE LIVE ACTIVITY =====
-console.log("🎮 Royal Match Live - Loading...");
+// ===== ROYAL MATCH - COMPLETE ORIGINAL GAME WITH FIXED AUTH =====
+console.log("🎮 Royal Match - Loading...");
 
 // ===== GLOBAL VARIABLES =====
 let currentUser = null;
@@ -99,6 +99,11 @@ const MissionSystem = {
     data.lastLoginDate = today;
     data.loginRewardClaimed = false;
     
+    if (data.consecutiveLoginDays >= 7 && !data.sevenDayRewardClaimed) {
+    } else if (data.consecutiveLoginDays === 1) {
+      data.sevenDayRewardClaimed = false;
+    }
+
     this.saveMissionData(data);
   },
 
@@ -107,7 +112,7 @@ const MissionSystem = {
   },
 
   claimLoginReward() {
-    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required' };
+    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required: Register or login to claim rewards' };
     
     const data = this.getMissionData();
     const today = this.getTodayString();
@@ -136,7 +141,7 @@ const MissionSystem = {
   },
 
   claimFirstDepositReward() {
-    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required' };
+    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required: Register or login to claim rewards' };
     
     const data = this.getMissionData();
     
@@ -156,7 +161,7 @@ const MissionSystem = {
   },
 
   claimSevenDayReward() {
-    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required' };
+    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required: Register or login to claim rewards' };
     
     const data = this.getMissionData();
     
@@ -184,6 +189,106 @@ const MissionSystem = {
     this.saveMissionData(data);
   },
 
+  claimGamesPlayedReward() {
+    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required: Register or login to claim rewards' };
+    
+    const data = this.getMissionData();
+    
+    if (data.gamesPlayed < 10) {
+      return { success: false, message: 'Need to play 10 games' };
+    }
+    
+    if (data.gamesPlayedRewardClaimed) {
+      return { success: false, message: 'Already claimed' };
+    }
+
+    const reward = this.getRandomReward(25, 40);
+    data.gamesPlayedRewardClaimed = true;
+    this.saveMissionData(data);
+
+    return { success: true, reward };
+  },
+
+  claimBigWinReward() {
+    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required: Register or login to claim rewards' };
+    
+    const data = this.getMissionData();
+    
+    if (data.totalWins < 5) {
+      return { success: false, message: 'Need 5 wins' };
+    }
+    
+    if (data.bigWinRewardClaimed) {
+      return { success: false, message: 'Already claimed' };
+    }
+
+    const reward = this.getRandomReward(30, 50);
+    data.bigWinRewardClaimed = true;
+    this.saveMissionData(data);
+
+    return { success: true, reward };
+  },
+
+  claimDepositMilestoneReward() {
+    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required: Register or login to claim rewards' };
+    
+    const data = this.getMissionData();
+    
+    if (data.totalDeposits < 500) {
+      return { success: false, message: 'Need 500+ total deposits' };
+    }
+    
+    if (data.depositMilestoneClaimed) {
+      return { success: false, message: 'Already claimed' };
+    }
+
+    const reward = this.getRandomReward(40, 75);
+    data.depositMilestoneClaimed = true;
+    this.saveMissionData(data);
+
+    return { success: true, reward };
+  },
+
+  claimHundredWinsReward() {
+    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required: Register or login to claim rewards' };
+    
+    const data = this.getMissionData();
+    
+    if (data.totalWins < 100) {
+      return { success: false, message: 'Need 100 wins' };
+    }
+    
+    if (data.hundredWinsRewardClaimed) {
+      return { success: false, message: 'Already claimed' };
+    }
+
+    const reward = this.getRandomReward(60, 100);
+    data.hundredWinsRewardClaimed = true;
+    this.saveMissionData(data);
+
+    return { success: true, reward };
+  },
+
+  claimThousandCoinsDepositReward() {
+    if (!currentUser || currentUser.isGuest) return { success: false, message: 'Login Required: Register or login to claim rewards' };
+    
+    const data = this.getMissionData();
+    
+    if (data.totalDeposits < 1000) {
+      return { success: false, message: 'Need 1000+ total deposits' };
+    }
+    
+    if (data.thousandCoinsDepositClaimed) {
+      return { success: false, message: 'Already claimed' };
+    }
+
+    const reward = this.getRandomReward(80, 120);
+    data.thousandCoinsDepositClaimed = true;
+    this.saveMissionData(data);
+
+    return { success: true, reward };
+  },
+
   getMissionsStatus() {
     const data = this.getMissionData();
     const today = this.getTodayString();
@@ -196,6 +301,7 @@ const MissionSystem = {
         description: 'Login daily to claim your reward!',
         reward: '10-25 Coins',
         status: (data.loginRewardClaimedDate === today) ? 'claimed' : 'available',
+        progress: null,
         canClaim: data.loginRewardClaimedDate !== today,
         isHard: false
       },
@@ -203,9 +309,10 @@ const MissionSystem = {
         id: 'firstDeposit',
         icon: '💰',
         title: 'First Deposit Bonus',
-        description: 'Make your first deposit of 100+ coins',
+        description: 'Make your first deposit of 100+ coins to unlock this reward!',
         reward: '15-30 Coins',
         status: data.firstDepositRewardClaimed ? 'claimed' : (data.firstDepositMade ? 'available' : 'locked'),
+        progress: data.firstDepositMade ? 'Deposit made!' : 'Deposit 100+ coins',
         canClaim: data.firstDepositMade && !data.firstDepositRewardClaimed,
         isHard: false
       },
@@ -213,12 +320,67 @@ const MissionSystem = {
         id: 'sevenDay',
         icon: '📅',
         title: '7-Day Login Streak',
-        description: 'Login for 7 consecutive days',
+        description: 'Login for 7 consecutive days to claim this reward!',
         reward: '20-40 Coins',
         status: data.sevenDayRewardClaimed ? 'claimed' : (data.consecutiveLoginDays >= 7 ? 'available' : 'locked'),
         progress: `${data.consecutiveLoginDays}/7 days`,
         canClaim: data.consecutiveLoginDays >= 7 && !data.sevenDayRewardClaimed,
         isHard: false
+      },
+      {
+        id: 'gamesPlayed',
+        icon: '🎮',
+        title: 'Game Enthusiast',
+        description: 'Play 10 games to unlock this reward!',
+        reward: '25-40 Coins',
+        status: data.gamesPlayedRewardClaimed ? 'claimed' : (data.gamesPlayed >= 10 ? 'available' : 'locked'),
+        progress: `${Math.min(data.gamesPlayed, 10)}/10 games`,
+        canClaim: data.gamesPlayed >= 10 && !data.gamesPlayedRewardClaimed,
+        isHard: false
+      },
+      {
+        id: 'bigWin',
+        icon: '🏆',
+        title: 'Winner\'s Circle',
+        description: 'Win 5 games to unlock this reward!',
+        reward: '30-50 Coins',
+        status: data.bigWinRewardClaimed ? 'claimed' : (data.totalWins >= 5 ? 'available' : 'locked'),
+        progress: `${Math.min(data.totalWins, 5)}/5 wins`,
+        canClaim: data.totalWins >= 5 && !data.bigWinRewardClaimed,
+        isHard: false
+      },
+      {
+        id: 'depositMilestone',
+        icon: '💎',
+        title: 'High Roller',
+        description: 'Deposit a total of 500+ coins to unlock this reward!',
+        reward: '40-75 Coins',
+        status: data.depositMilestoneClaimed ? 'claimed' : (data.totalDeposits >= 500 ? 'available' : 'locked'),
+        progress: `${Math.min(data.totalDeposits, 500)}/500 coins`,
+        canClaim: data.totalDeposits >= 500 && !data.depositMilestoneClaimed,
+        isHard: true
+      },
+      {
+        id: 'hundredWins',
+        icon: '⭐',
+        title: 'Century Champion',
+        description: 'Win 100 games to unlock this exclusive reward!',
+        reward: '60-100 Coins',
+        status: data.hundredWinsRewardClaimed ? 'claimed' : (data.totalWins >= 100 ? 'available' : 'locked'),
+        progress: `${Math.min(data.totalWins, 100)}/100 wins`,
+        canClaim: data.totalWins >= 100 && !data.hundredWinsRewardClaimed,
+        isHard: true
+      },
+      {
+        id: 'thousandDeposit',
+        icon: '👑',
+        title: 'Royal Investor',
+        description: 'Deposit a total of 1000+ coins to unlock this ultimate reward!',
+        reward: '80-120 Coins',
+        status: data.thousandCoinsDepositClaimed ? 'claimed' : (data.totalDeposits >= 1000 ? 'available' : 'locked'),
+        progress: `${Math.min(data.totalDeposits, 1000)}/1000 coins`,
+        canClaim: data.totalDeposits >= 1000 && !data.thousandCoinsDepositClaimed,
+        isHard: true
       }
     ];
   }
@@ -300,252 +462,6 @@ function loadUserDataFromFirebase(userId) {
     });
 }
 
-// ===== NEW: FIREBASE LIVE ACTIVITY FUNCTIONS =====
-
-// Save live activity to Firebase
-function saveLiveActivityToFirebase(activityType, data) {
-  if (!currentUser || currentUser.isGuest) return;
-  
-  const activityRef = firebase.database().ref('live-activity').push();
-  
-  const activityData = {
-    type: activityType,
-    username: currentUser.username,
-    userId: currentUser.id,
-    timestamp: new Date().toISOString(),
-    time: new Date().toLocaleTimeString(),
-    ...data
-  };
-  
-  activityRef.set(activityData)
-    .then(() => {
-      console.log(`✅ Live activity saved: ${activityType}`);
-      
-      // Keep only last 50 activities
-      firebase.database().ref('live-activity').limitToFirst(-51).once('value', snapshot => {
-        const activities = snapshot.val();
-        if (activities) {
-          const keys = Object.keys(activities);
-          if (keys.length > 50) {
-            const keysToRemove = keys.slice(0, keys.length - 50);
-            keysToRemove.forEach(key => {
-              firebase.database().ref('live-activity/' + key).remove();
-            });
-          }
-        }
-      });
-    })
-    .catch(error => console.error("❌ Error saving live activity:", error));
-}
-
-// Save online player to Firebase
-function updateOnlinePlayersInFirebase() {
-  if (!currentUser || currentUser.isGuest) return;
-  
-  const onlineRef = firebase.database().ref('online-players/' + currentUser.id);
-  
-  onlineRef.set({
-    username: currentUser.username,
-    lastSeen: new Date().toISOString(),
-    status: 'online'
-  });
-  
-  // Remove after disconnect
-  window.addEventListener('beforeunload', () => {
-    onlineRef.remove();
-  });
-}
-
-// Get live activities from Firebase
-function loadLiveActivitiesFromFirebase() {
-  firebase.database().ref('live-activity').limitToLast(20).once('value', snapshot => {
-    const activities = snapshot.val();
-    if (activities) {
-      const activitiesList = Object.values(activities).reverse();
-      updateLiveFeedFromFirebase(activitiesList);
-    }
-  });
-  
-  // Listen for new activities
-  firebase.database().ref('live-activity').limitToLast(1).on('child_added', snapshot => {
-    const activity = snapshot.val();
-    addToLiveFeedFromFirebase(activity);
-  });
-}
-
-// Update live feed from Firebase
-function updateLiveFeedFromFirebase(activities) {
-  const feed = document.getElementById('liveActivityFeed');
-  const gameFeed = document.getElementById('gameActivityFeed');
-  if (!feed && !gameFeed) return;
-  
-  let feedHtml = '';
-  activities.forEach(activity => {
-    let message = '';
-    let typeClass = 'normal';
-    
-    switch(activity.type) {
-      case 'game-start':
-        message = `🎮 ${activity.username} started playing`;
-        break;
-      case 'game-win':
-        message = `🏆 ${activity.username} won ${activity.amount} coins!`;
-        typeClass = 'win';
-        break;
-      case 'game-loss':
-        message = `💥 ${activity.username} lost ${activity.amount} coins`;
-        typeClass = 'loss';
-        break;
-      case 'game-maxwin':
-        message = `🔥 ${activity.username} hit MAX WIN ${activity.amount}!`;
-        typeClass = 'win';
-        break;
-      case 'user-join':
-        message = `👋 ${activity.username} joined the game`;
-        break;
-      case 'user-left':
-        message = `👋 ${activity.username} left`;
-        break;
-      case 'purchase':
-        message = `🛒 ${activity.username} bought ${activity.amount} coins`;
-        break;
-      case 'vip-unlock':
-        message = `👑 ${activity.username} unlocked VIP!`;
-        typeClass = 'win';
-        break;
-    }
-    
-    feedHtml += `<div class="activity-item ${typeClass}">
-      <span>${message}</span>
-      <span class="activity-time">${activity.time}</span>
-    </div>`;
-  });
-  
-  if (feed) feed.innerHTML = feedHtml;
-  if (gameFeed) gameFeed.innerHTML = feedHtml.slice(0, 5);
-}
-
-// Add single activity to feed
-function addToLiveFeedFromFirebase(activity) {
-  const feed = document.getElementById('liveActivityFeed');
-  const gameFeed = document.getElementById('gameActivityFeed');
-  if (!feed && !gameFeed) return;
-  
-  let message = '';
-  let typeClass = 'normal';
-  
-  switch(activity.type) {
-    case 'game-start':
-      message = `🎮 ${activity.username} started playing`;
-      break;
-    case 'game-win':
-      message = `🏆 ${activity.username} won ${activity.amount} coins!`;
-      typeClass = 'win';
-      break;
-    case 'game-loss':
-      message = `💥 ${activity.username} lost ${activity.amount} coins`;
-      typeClass = 'loss';
-      break;
-    case 'game-maxwin':
-      message = `🔥 ${activity.username} hit MAX WIN ${activity.amount}!`;
-      typeClass = 'win';
-      break;
-    case 'user-join':
-      message = `👋 ${activity.username} joined the game`;
-      break;
-    case 'user-left':
-      message = `👋 ${activity.username} left`;
-      break;
-    case 'purchase':
-      message = `🛒 ${activity.username} bought ${activity.amount} coins`;
-      break;
-    case 'vip-unlock':
-      message = `👑 ${activity.username} unlocked VIP!`;
-      typeClass = 'win';
-      break;
-  }
-  
-  const item = document.createElement('div');
-  item.className = `activity-item ${typeClass}`;
-  item.innerHTML = `
-    <span>${message}</span>
-    <span class="activity-time">${activity.time}</span>
-  `;
-  
-  if (feed) {
-    feed.insertBefore(item, feed.firstChild);
-    if (feed.children.length > 20) feed.removeChild(feed.lastChild);
-  }
-  
-  if (gameFeed) {
-    gameFeed.insertBefore(item.cloneNode(true), gameFeed.firstChild);
-    if (gameFeed.children.length > 10) gameFeed.removeChild(gameFeed.lastChild);
-  }
-}
-
-// Get online players from Firebase
-function loadOnlinePlayersFromFirebase() {
-  firebase.database().ref('online-players').on('value', snapshot => {
-    const players = snapshot.val();
-    const list = document.getElementById('livePlayersList');
-    const onlineCount = document.getElementById('liveOnlineCount');
-    const lobbyOnlineCount = document.getElementById('lobbyOnlineCount');
-    const onlineCountDisplay = document.getElementById('onlineCount');
-    const onlineCountGame = document.getElementById('onlineCountGame');
-    
-    if (players) {
-      const playerList = Object.values(players);
-      const count = playerList.length;
-      
-      if (onlineCount) onlineCount.textContent = count;
-      if (lobbyOnlineCount) lobbyOnlineCount.textContent = count + ' online';
-      if (onlineCountDisplay) onlineCountDisplay.textContent = count + ' online';
-      if (onlineCountGame) onlineCountGame.innerHTML = `<span class="live-dot" style="width:6px;height:6px;"></span> ${count} online`;
-      
-      if (list) {
-        list.innerHTML = playerList.slice(0, 10).map(p => `
-          <div class="activity-item">
-            <span class="live-dot" style="width: 8px; height: 8px; background: #00ff88;"></span>
-            <span>${p.username}</span>
-            <span class="activity-time">online</span>
-          </div>
-        `).join('');
-      }
-    } else {
-      if (onlineCount) onlineCount.textContent = '0';
-      if (lobbyOnlineCount) lobbyOnlineCount.textContent = '0 online';
-      if (onlineCountDisplay) onlineCountDisplay.textContent = '0 online';
-      if (onlineCountGame) onlineCountGame.innerHTML = `<span class="live-dot"></span> 0 online`;
-      if (list) list.innerHTML = '<div class="activity-item">No players online</div>';
-    }
-  });
-}
-
-// ===== REAL-TIME MULTIPLAYER FEATURES =====
-
-// Toggle notifications
-function toggleNotifications() {
-  notificationsEnabled = !notificationsEnabled;
-  const toggle = document.getElementById('notificationToggle');
-  if (toggle) toggle.classList.toggle('active');
-}
-
-// Show live notification
-function showLiveNotification(message, icon = '🔔') {
-  if (!notificationsEnabled) return;
-  
-  const notification = document.createElement('div');
-  notification.className = 'real-time-notification';
-  notification.innerHTML = `${icon} ${message}`;
-  document.body.appendChild(notification);
-  
-  setTimeout(() => notification.classList.add('show'), 100);
-  setTimeout(() => {
-    notification.classList.remove('show');
-    setTimeout(() => notification.remove(), 500);
-  }, 3000);
-}
-
 // ===== UI FUNCTIONS =====
 function openAuthModal(tab) {
   const overlay = document.getElementById('authOverlay');
@@ -600,13 +516,7 @@ function updateHeaderForUser() {
     
     if (headerUsername) headerUsername.textContent = currentUser.username;
     if (headerAvatar) headerAvatar.textContent = currentUser.avatar;
-    if (userStatus) {
-      if (!currentUser.isGuest) {
-        userStatus.innerHTML = '<span class="live-dot" style="width:8px;height:8px;background:#00ff88;"></span> Live';
-      } else {
-        userStatus.innerHTML = '<span class="live-dot"></span> Guest';
-      }
-    }
+    if (userStatus) userStatus.textContent = currentUser.isGuest ? 'Guest Mode' : 'Verified Player';
   }
 }
 
@@ -626,7 +536,6 @@ function openProfile() {
   const gamesDisplay = document.getElementById('profileGames');
   const winsDisplay = document.getElementById('profileWins');
   const winRateDisplay = document.getElementById('profileWinRate');
-  const liveStatus = document.getElementById('liveStatusIndicator');
   
   if (nameDisplay) nameDisplay.textContent = currentUser.username;
   if (idDisplay) idDisplay.textContent = 'ID: ' + currentUser.id;
@@ -639,14 +548,6 @@ function openProfile() {
     : 0;
   if (winRateDisplay) winRateDisplay.textContent = winRate + '%';
   
-  if (liveStatus) {
-    if (!currentUser.isGuest) {
-      liveStatus.innerHTML = '<span class="live-dot" style="background:#00ff88;"></span> <span>Live Mode</span>';
-    } else {
-      liveStatus.innerHTML = '<span class="live-dot"></span> <span>Guest Mode</span>';
-    }
-  }
-  
   if (audio) audio.playClick();
 }
 
@@ -656,12 +557,6 @@ function closeProfile() {
 }
 
 function logout() {
-  if (currentUser && !currentUser.isGuest) {
-    // Save to Firebase
-    saveLiveActivityToFirebase('user-left', {});
-    firebase.database().ref('online-players/' + currentUser.id).remove();
-  }
-  
   currentUser = null;
   closeProfile();
   
@@ -671,7 +566,7 @@ function logout() {
   
   if (headerUsername) headerUsername.textContent = 'Guest';
   if (headerAvatar) headerAvatar.textContent = '👤';
-  if (userStatus) userStatus.innerHTML = '<span class="live-dot"></span> Offline';
+  if (userStatus) userStatus.textContent = 'Tap to login';
   
   gameState.balance = 1000;
   updateUI();
@@ -725,13 +620,7 @@ function unlockVIP() {
   gameState.balance -= 100000;
   updateUI();
   closeVIPPopup();
-  showPopup('VIP Unlocked!', '🎉 Welcome to the VIP room!');
-  
-  // Save to Firebase
-  if (currentUser && !currentUser.isGuest) {
-    saveLiveActivityToFirebase('vip-unlock', {});
-  }
-  
+  showPopup('VIP Unlocked!', '🎉 Welcome to the VIP room! Enjoy exclusive benefits!');
   if (audio) audio.playWin();
 }
 
@@ -903,6 +792,7 @@ function openOffers() {
 function closeOffers() {
   const section = document.getElementById('offersSection');
   if (section) section.classList.remove('active');
+  if (audio) audio.playClick();
 }
 
 function openMissions() {
@@ -938,8 +828,15 @@ function renderMissions() {
   }
 
   const easyMissions = missions.filter(m => !m.isHard);
+  const hardMissions = missions.filter(m => m.isHard);
 
+  html += '<h3 style="color: #ffd700; margin-bottom: 1rem; font-family: Playfair Display;">Easy Missions</h3>';
   easyMissions.forEach(mission => {
+    html += renderMissionCard(mission, isGuest);
+  });
+
+  html += '<h3 style="color: #ff6b6b; margin-top: 2rem; margin-bottom: 1rem; font-family: Playfair Display;">⚡ Hard Missions (High Rewards)</h3>';
+  hardMissions.forEach(mission => {
     html += renderMissionCard(mission, isGuest);
   });
 
@@ -961,14 +858,17 @@ function renderMissionCard(mission, isGuest) {
     btnHtml = `<button class="mission-btn claim" onclick="claimMissionReward('${mission.id}')">Claim Reward</button>`;
   }
 
+  const hardClass = mission.isHard ? 'hard' : '';
+  const statusBadgeClass = mission.isHard ? 'hard' : mission.status;
+
   return `
-    <div class="mission-item">
+    <div class="mission-item ${statusClass} ${hardClass}">
       <div class="mission-header">
         <div class="mission-title">
           <span>${mission.icon}</span>
           <span>${mission.title}</span>
         </div>
-        <span class="mission-status ${mission.status}">${statusText}</span>
+        <span class="mission-status ${statusBadgeClass}">${statusText}</span>
       </div>
       <div class="mission-desc">${mission.description}</div>
       ${mission.progress ? `
@@ -1001,6 +901,21 @@ function claimMissionReward(missionId) {
     case 'sevenDay':
       result = MissionSystem.claimSevenDayReward();
       break;
+    case 'gamesPlayed':
+      result = MissionSystem.claimGamesPlayedReward();
+      break;
+    case 'bigWin':
+      result = MissionSystem.claimBigWinReward();
+      break;
+    case 'depositMilestone':
+      result = MissionSystem.claimDepositMilestoneReward();
+      break;
+    case 'hundredWins':
+      result = MissionSystem.claimHundredWinsReward();
+      break;
+    case 'thousandDeposit':
+      result = MissionSystem.claimThousandCoinsDepositReward();
+      break;
     default:
       result = { success: false, message: 'Unknown mission' };
   }
@@ -1016,79 +931,17 @@ function claimMissionReward(missionId) {
   }
 }
 
-function openLiveEvents() {
-  const section = document.getElementById('liveEventsSection');
+function openEvents() {
+  const section = document.getElementById('eventsSection');
   if (section) section.classList.add('active');
   closeOffers();
   if (audio) audio.playClick();
-  
-  // Update live event data
-  updateEventLeaderboard();
-  startEventTimers();
 }
 
-function closeLiveEvents() {
-  const section = document.getElementById('liveEventsSection');
+function closeEvents() {
+  const section = document.getElementById('eventsSection');
   if (section) section.classList.remove('active');
-}
-
-function updateEventLeaderboard() {
-  const list = document.getElementById('eventLeaderboard');
-  if (!list) return;
-  
-  // Get from Firebase or use mock
-  firebase.database().ref('users').orderByChild('totalWins').limitToLast(5).once('value', snapshot => {
-    const users = snapshot.val();
-    if (users) {
-      const leaders = Object.values(users).map(u => ({
-        name: u.username,
-        score: u.totalWins || 0
-      })).reverse();
-      
-      list.innerHTML = leaders.map(l => `
-        <div class="activity-item">
-          <span>👤 ${l.name}</span>
-          <span>${l.score} wins</span>
-        </div>
-      `).join('');
-    }
-  });
-}
-
-function startEventTimers() {
-  // Championship countdown
-  const timer = document.getElementById('championshipTimer');
-  if (timer) {
-    let timeLeft = 194400; // 2 days 5 hours in seconds
-    setInterval(() => {
-      if (timer) {
-        const days = Math.floor(timeLeft / 86400);
-        const hours = Math.floor((timeLeft % 86400) / 3600);
-        timer.textContent = `${days}d ${hours}h`;
-        timeLeft--;
-      }
-    }, 1000);
-  }
-  
-  // Update prize pool randomly
-  const prizePool = document.getElementById('prizePool');
-  if (prizePool) {
-    setInterval(() => {
-      const increase = Math.floor(Math.random() * 1000);
-      const current = parseInt(prizePool.textContent.replace(/,/g, '')) || 1000000;
-      prizePool.textContent = (current + increase).toLocaleString();
-    }, 30000);
-  }
-}
-
-function openLivePlayers() {
   openOffers();
-  document.getElementById('livePlayerBadge').style.display = 'none';
-}
-
-function refreshLeaderboard() {
-  renderLeaderboard();
-  showLiveNotification('Leaderboard updated', '🔄');
 }
 
 function openSupport() {
@@ -1181,9 +1034,6 @@ function purchaseCoins(coins) {
   
   // Save to Firebase
   saveCoinsToFirebase(gameState.balance);
-  if (currentUser && !currentUser.isGuest) {
-    saveLiveActivityToFirebase('purchase', { amount: coins });
-  }
   
   closeShop();
   showPopup('Purchase Successful!', `You received ${formatNumber(coins)} coins!`);
@@ -1220,55 +1070,30 @@ function renderLeaderboard() {
   const list = document.getElementById('leaderboardList');
   if (!list) return;
   
-  // Try to get from Firebase first
-  firebase.database().ref('users').orderByChild('totalWins').limitToLast(7).once('value', snapshot => {
-    const users = snapshot.val();
-    if (users) {
-      const leaders = Object.values(users).map(u => ({
-        name: u.username,
-        win: u.totalWins || 0,
-        avatar: '👤'
-      })).reverse();
-      
-      list.innerHTML = leaders.map((champion, index) => {
-        let rankClass = '';
-        if (index === 0) rankClass = 'gold';
-        else if (index === 1) rankClass = 'silver';
-        else if (index === 2) rankClass = 'bronze';
-        
-        return `
-          <div class="leaderboard-item">
-            <div class="rank-number ${rankClass}">${index + 1}</div>
-            <div class="leader-avatar">${champion.avatar}</div>
-            <div class="leader-info">
-              <div class="leader-name">${champion.name}</div>
-              <div class="leader-win">${champion.win} wins</div>
-            </div>
-          </div>
-        `;
-      }).join('');
-    } else {
-      // Fallback to random
-      const champions = getRandomChampions();
-      list.innerHTML = champions.map((champion, index) => {
-        let rankClass = '';
-        if (index === 0) rankClass = 'gold';
-        else if (index === 1) rankClass = 'silver';
-        else if (index === 2) rankClass = 'bronze';
-        
-        return `
-          <div class="leaderboard-item">
-            <div class="rank-number ${rankClass}">${champion.rank}</div>
-            <div class="leader-avatar">${champion.avatar}</div>
-            <div class="leader-info">
-              <div class="leader-name">${champion.name}</div>
-              <div class="leader-win">${champion.win}</div>
-            </div>
-          </div>
-        `;
-      }).join('');
+  const champions = getRandomChampions();
+  
+  list.innerHTML = champions.map((champion, index) => {
+    let rankClass = '';
+    
+    if (index === 0) {
+      rankClass = 'gold';
+    } else if (index === 1) {
+      rankClass = 'silver';
+    } else if (index === 2) {
+      rankClass = 'bronze';
     }
-  });
+
+    return `
+      <div class="leaderboard-item">
+        <div class="rank-number ${rankClass}">${champion.rank}</div>
+        <div class="leader-avatar">${champion.avatar}</div>
+        <div class="leader-info">
+          <div class="leader-name">${champion.name}</div>
+          <div class="leader-win">${champion.win} won</div>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function startLeaderboardRotation() {
@@ -1276,43 +1101,53 @@ function startLeaderboardRotation() {
   if (leaderboardInterval) clearInterval(leaderboardInterval);
   leaderboardInterval = setInterval(() => {
     renderLeaderboard();
-  }, 10000);
+  }, 5000);
 }
 
-// ===== GAME FUNCTIONS =====
+function updateOnlineCount() {
+  // Removed online counters
+}
+
 function enterGame() {
-  console.log("🎮 Entering live game...");
+  console.log("🎮 Entering game...");
   
   const loader = document.getElementById('gameEntryLoader');
   const gameView = document.getElementById('gameView');
   
-  if (!loader || !gameView) return;
+  if (!loader || !gameView) {
+    console.error("❌ Game elements not found");
+    return;
+  }
   
-  loader.classList.add('active');
-  if (audio) audio.playClick();
-  
-  gameState.isPlaying = false;
-  gameState.canFlip = false;
-  gameState.currentBet = 0;
-  
-  setTimeout(() => {
-    loader.classList.remove('active');
-    gameView.classList.add('active');
-    isInGame = true;
+  try {
+    loader.classList.add('active');
+    if (audio) audio.playClick();
     
-    const betPanel = document.getElementById('betPanel');
-    const startBtn = document.getElementById('startBtn');
-    if (betPanel) betPanel.classList.remove('hidden');
-    if (startBtn) startBtn.classList.remove('hidden');
-    
-    const messageText = document.getElementById('messageText');
-    if (messageText) messageText.textContent = currentUser ? 'Select your bet and tap START' : 'Login to play live!';
-    
-    // Save to Firebase
-    if (currentUser && !currentUser.isGuest) {
-      saveLiveActivityToFirebase('game-start', {});
+    if (gameState) {
+      gameState.isPlaying = false;
+      gameState.canFlip = false;
+      gameState.currentBet = 0;
     }
-  }, 3000);
+    
+    setTimeout(() => {
+      loader.classList.remove('active');
+      gameView.classList.add('active');
+      isInGame = true;
+      
+      const betPanel = document.getElementById('betPanel');
+      const startBtn = document.getElementById('startBtn');
+      if (betPanel) betPanel.classList.remove('hidden');
+      if (startBtn) startBtn.classList.remove('hidden');
+      
+      const messageText = document.getElementById('messageText');
+      if (messageText) messageText.textContent = 'Select your bet and tap START GAME';
+      
+      console.log("✅ Game screen activated");
+    }, 3000);
+  } catch (e) {
+    console.error("❌ Error entering game:", e);
+    loader.classList.remove('active');
+  }
 }
 
 function exitGame() {
@@ -1325,17 +1160,16 @@ function exitGame() {
 function initApp() {
   console.log("🚀 Initializing app...");
   
-  createParticles();
-  startLeaderboardRotation();
-  MissionSystem.checkLoginStreak();
-  
-  // Load live data from Firebase
-  if (typeof firebase !== 'undefined') {
-    loadOnlinePlayersFromFirebase();
-    loadLiveActivitiesFromFirebase();
+  try {
+    createParticles();
+    startLeaderboardRotation();
+    
+    MissionSystem.checkLoginStreak();
+    
+    console.log("✅ App initialized successfully");
+  } catch (e) {
+    console.error("❌ Error in initApp:", e);
   }
-  
-  console.log("✅ App initialized");
 }
 
 // ===== GAME CONFIG =====
@@ -1420,6 +1254,7 @@ function generateMultiplierDisplay() {
   CONFIG.MULTIPLIERS.forEach((mult, index) => {
     const item = document.createElement('span');
     item.className = 'multiplier-item';
+    item.dataset.step = index + 1;
     if (index === CONFIG.MULTIPLIERS.length - 1) {
       item.classList.add('final');
       item.textContent = `ALL:${mult}x`;
@@ -1561,14 +1396,14 @@ function updateBetSelection() {
 }
 
 async function startGame() {
-  if (!currentUser) {
-    setMessage('Please login first!');
-    openAuthModal('login');
+  if (gameState.currentBet <= 0) {
+    setMessage('Select a bet first!');
     return;
   }
   
-  if (gameState.currentBet <= 0) {
-    setMessage('Select a bet first!');
+  if (!currentUser) {
+    setMessage('Please login first!');
+    openAuthModal('login');
     return;
   }
   
@@ -1597,7 +1432,7 @@ async function startGame() {
   await animateShuffle();
 
   gameState.canFlip = true;
-  setMessage('Find matching pairs! Avoid the bombs!');
+  setMessage('Find matching pairs! Avoid the bombs! Find golden pairs to win 20x!');
   if (audio) audio.playClick();
 }
 
@@ -1746,25 +1581,6 @@ function cashout() {
   // Save to Firebase
   saveGameResultToFirebase(true, gameState.currentWin);
   
-  // Save live activity to Firebase
-  if (currentUser && !currentUser.isGuest) {
-    saveLiveActivityToFirebase('game-win', { amount: gameState.currentWin, multiplier: gameState.multiplier });
-  }
-  
-  // Notify live server
-  if (window.socket && currentUser && !currentUser.isGuest) {
-    window.socket.emit('game-won', {
-      userId: currentUser.id,
-      username: currentUser.username,
-      amount: gameState.currentWin,
-      multiplier: gameState.multiplier
-    });
-  }
-  
-  if (gameState.currentWin > 1000) {
-    showLiveNotification(`🏆 ${currentUser?.username} won BIG!`);
-  }
-  
   if (audio) audio.playCashout();
   if (elements.winAmountDisplay) elements.winAmountDisplay.textContent = formatNumber(gameState.currentWin);
   if (elements.winMultiplierDisplay) elements.winMultiplierDisplay.textContent = `${gameState.multiplier}x`;
@@ -1786,19 +1602,6 @@ function handleBomb() {
   // Save to Firebase
   saveGameResultToFirebase(false, 0);
   
-  // Save live activity to Firebase
-  if (currentUser && !currentUser.isGuest) {
-    saveLiveActivityToFirebase('game-loss', { amount: gameState.currentBet });
-  }
-  
-  if (window.socket && currentUser && !currentUser.isGuest) {
-    window.socket.emit('game-lost', {
-      userId: currentUser.id,
-      username: currentUser.username,
-      amount: gameState.currentBet
-    });
-  }
-  
   if (audio) audio.playBomb();
   if (elements.loseSubtext) elements.loseSubtext.textContent = `You lost ${formatNumber(gameState.currentBet)}`;
   if (elements.loseOverlay) elements.loseOverlay.classList.add('active');
@@ -1819,22 +1622,6 @@ function handleMaxWin() {
   
   // Save to Firebase
   saveGameResultToFirebase(true, gameState.currentWin);
-  
-  // Save live activity to Firebase
-  if (currentUser && !currentUser.isGuest) {
-    saveLiveActivityToFirebase('game-maxwin', { amount: gameState.currentWin, multiplier: CONFIG.MULTIPLIERS[CONFIG.MULTIPLIERS.length - 1] });
-  }
-  
-  if (window.socket && currentUser && !currentUser.isGuest) {
-    window.socket.emit('game-maxwin', {
-      userId: currentUser.id,
-      username: currentUser.username,
-      amount: gameState.currentWin,
-      multiplier: CONFIG.MULTIPLIERS[CONFIG.MULTIPLIERS.length - 1]
-    });
-  }
-  
-  showLiveNotification(`🔥 ${currentUser?.username} won BIG!`, '🏆');
   
   if (audio) audio.playWin();
   if (elements.winAmountDisplay) elements.winAmountDisplay.textContent = formatNumber(gameState.currentWin);
@@ -1928,65 +1715,96 @@ function setupEventListeners() {
   if (elements.playAgainLose) elements.playAgainLose.addEventListener('click', resetGame);
 }
 
-// ===== AUTH FUNCTIONS =====
+// ===== FIXED AUTH FUNCTIONS =====
 function handleLoginSubmit(form) {
-  const username = form.username.value.trim();
+  const email = form.email.value.trim();
   const password = form.password.value.trim();
   const errorContainer = document.getElementById('loginErrors');
   const successContainer = document.getElementById('loginSuccess');
 
-  if (errorContainer) errorContainer.classList.remove('active');
-  if (successContainer) successContainer.classList.remove('active');
-  if (errorContainer) errorContainer.innerHTML = '';
-  if (successContainer) successContainer.innerHTML = '';
+  if (errorContainer) {
+    errorContainer.classList.remove('active');
+    errorContainer.innerHTML = '';
+  }
+  if (successContainer) {
+    successContainer.classList.remove('active');
+    successContainer.innerHTML = '';
+  }
 
-  const errors = [];
-  if (!username) errors.push('Username is required');
-  if (!password) errors.push('Password is required');
-
-  if (errors.length) {
+  if (!email || !password) {
     if (errorContainer) {
-      errorContainer.innerHTML = '<ul>' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+      errorContainer.innerHTML = 'Please fill in all fields';
       errorContainer.classList.add('active');
     }
     return;
   }
 
-  // Demo login
-  currentUser = {
-    username: username,
-    avatar: '👤',
-    isGuest: false,
-    id: 'USER' + Math.floor(Math.random() * 99999),
-    stats: { games: 0, wins: 0, winRate: 0 }
-  };
+  // Show loading
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Logging in...';
+  submitBtn.disabled = true;
 
-  updateHeaderForUser();
-  
-  // Save to Firebase
-  if (typeof firebase !== 'undefined') {
-    updateOnlinePlayersInFirebase();
-    saveLiveActivityToFirebase('user-join', {});
-  }
-  
-  // Tell server user is online
-  if (window.socket) {
-    window.socket.emit('user-online', {
-      userId: currentUser.id,
-      username: currentUser.username
+  firebase.auth().signInWithEmailAndPassword(email, password)
+    .then(userCredential => {
+      const user = userCredential.user;
+      return firebase.database().ref('users/' + user.uid).once('value');
+    })
+    .then(snapshot => {
+      const userData = snapshot.val();
+      if (!userData) throw new Error('User data not found');
+      
+      currentUser = {
+        username: userData.username,
+        avatar: '👤',
+        isGuest: false,
+        id: firebase.auth().currentUser.uid,
+        stats: {
+          games: userData.gamesPlayed || 0,
+          wins: userData.totalWins || 0,
+          winRate: userData.gamesPlayed ? Math.round((userData.totalWins / userData.gamesPlayed) * 100) : 0
+        }
+      };
+
+      gameState.balance = userData.coins || 1000;
+      
+      updateHeaderForUser();
+      updateUI();
+      
+      if (successContainer) {
+        successContainer.textContent = 'Login successful!';
+        successContainer.classList.add('active');
+      }
+      
+      setTimeout(() => {
+        closeAuth();
+        showPopup('Welcome back!', `Good to see you, ${userData.username}`);
+      }, 800);
+      
+      // Load user data
+      loadUserDataFromFirebase(currentUser.id);
+    })
+    .catch(error => {
+      console.error("Login error:", error);
+      if (errorContainer) {
+        let errorMessage = error.message;
+        if (error.code === 'auth/user-not-found') {
+          errorMessage = 'No account found with this email';
+        } else if (error.code === 'auth/wrong-password') {
+          errorMessage = 'Incorrect password';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage = 'Invalid email address';
+        } else if (error.code === 'auth/too-many-requests') {
+          errorMessage = 'Too many failed attempts. Try again later';
+        }
+        errorContainer.innerHTML = errorMessage;
+        errorContainer.classList.add('active');
+      }
+    })
+    .finally(() => {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
     });
-  }
-  
-  if (successContainer) {
-    successContainer.textContent = 'Login successful!';
-    successContainer.classList.add('active');
-  }
-  
-  showLiveNotification(`Welcome ${username}!`, '👋');
-
-  setTimeout(() => {
-    closeAuth();
-  }, 800);
 }
 
 function handleRegisterSubmit(form) {
@@ -1997,39 +1815,52 @@ function handleRegisterSubmit(form) {
   const errorContainer = document.getElementById('registerErrors');
   const successContainer = document.getElementById('registerSuccess');
 
-  if (errorContainer) errorContainer.classList.remove('active');
-  if (successContainer) successContainer.classList.remove('active');
-  if (errorContainer) errorContainer.innerHTML = '';
-  if (successContainer) successContainer.innerHTML = '';
+  if (errorContainer) {
+    errorContainer.classList.remove('active');
+    errorContainer.innerHTML = '';
+  }
+  if (successContainer) {
+    successContainer.classList.remove('active');
+    successContainer.innerHTML = '';
+  }
 
-  const errors = [];
-  if (!username) errors.push('Username is required');
-  if (!email) errors.push('Email is required');
-  if (!password1) errors.push('Password is required');
-  if (password1 && password1.length < 6) errors.push('Password must be at least 6 characters');
-  if (password1 !== password2) errors.push('Passwords do not match');
-
-  if (errors.length) {
+  // Validation
+  if (!username || !email || !password1 || !password2) {
     if (errorContainer) {
-      errorContainer.innerHTML = '<ul>' + errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+      errorContainer.innerHTML = 'Please fill in all fields';
+      errorContainer.classList.add('active');
+    }
+    return;
+  }
+
+  if (password1 !== password2) {
+    if (errorContainer) {
+      errorContainer.innerHTML = 'Passwords do not match';
+      errorContainer.classList.add('active');
+    }
+    return;
+  }
+
+  if (password1.length < 6) {
+    if (errorContainer) {
+      errorContainer.innerHTML = 'Password must be at least 6 characters';
       errorContainer.classList.add('active');
     }
     return;
   }
 
   // Show loading
-  if (successContainer) {
-    successContainer.textContent = 'Creating account...';
-    successContainer.classList.add('active');
-  }
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Creating account...';
+  submitBtn.disabled = true;
 
-  // Create user in Firebase Auth
+  // Create user
   firebase.auth().createUserWithEmailAndPassword(email, password1)
-    .then((userCredential) => {
+    .then(userCredential => {
       const user = userCredential.user;
-      console.log("✅ User created in Auth:", user.uid);
       
-      // Save user data to Realtime Database
+      // Save user data to database
       return firebase.database().ref('users/' + user.uid).set({
         username: username,
         email: email,
@@ -2038,58 +1869,59 @@ function handleRegisterSubmit(form) {
         totalWins: 0,
         totalLosses: 0,
         createdAt: new Date().toISOString()
-      });
+      }).then(() => user);
     })
-    .then(() => {
-      console.log("✅ User data saved to Realtime Database");
-      
+    .then(user => {
       currentUser = {
         username: username,
         avatar: '👤',
         isGuest: false,
-        id: firebase.auth().currentUser.uid,
+        id: user.uid,
         stats: { games: 0, wins: 0, winRate: 0 }
       };
 
-      // Save to Firebase
-      updateOnlinePlayersInFirebase();
-      saveLiveActivityToFirebase('user-join', {});
-
-      // Tell server user is online
-      if (window.socket) {
-        window.socket.emit('user-online', {
-          userId: currentUser.id,
-          username: currentUser.username
-        });
-      }
-
-      loadUserDataFromFirebase(currentUser.id);
+      gameState.balance = 1000;
+      
       updateHeaderForUser();
+      updateUI();
       
       if (successContainer) {
         successContainer.textContent = 'Registration successful!';
+        successContainer.classList.add('active');
       }
-      
-      showLiveNotification(`Welcome ${username}!`, '👋');
       
       setTimeout(() => {
-        switchAuthTab('login');
         closeAuth();
-      }, 1500);
+        showPopup('Welcome!', `Account created successfully, ${username}`);
+      }, 800);
+      
+      // Load user data
+      loadUserDataFromFirebase(currentUser.id);
     })
-    .catch((error) => {
-      console.error("❌ Firebase error:", error);
+    .catch(error => {
+      console.error("Registration error:", error);
       if (errorContainer) {
-        errorContainer.innerHTML = '<ul><li>' + error.message + '</li></ul>';
+        let errorMessage = error.message;
+        if (error.code === 'auth/email-already-in-use') {
+          errorMessage = 'Email already in use';
+        } else if (error.code === 'auth/invalid-email') {
+          errorMessage = 'Invalid email address';
+        } else if (error.code === 'auth/weak-password') {
+          errorMessage = 'Password is too weak';
+        }
+        errorContainer.innerHTML = errorMessage;
         errorContainer.classList.add('active');
       }
-      if (successContainer) successContainer.classList.remove('active');
+    })
+    .finally(() => {
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
     });
 }
 
 // ===== INITIALIZATION =====
 document.addEventListener('DOMContentLoaded', () => {
-  console.log("📄 DOM loaded - starting live game");
+  console.log("📄 DOM loaded - starting game");
   
   gameState.balance = CONFIG.INITIAL_BALANCE;
   
@@ -2098,16 +1930,41 @@ document.addEventListener('DOMContentLoaded', () => {
   generateMultiplierDisplay();
   initApp();
   
+  // Check if user is already logged in
+  firebase.auth().onAuthStateChanged(user => {
+    if (user) {
+      firebase.database().ref('users/' + user.uid).once('value').then(snapshot => {
+        const userData = snapshot.val();
+        if (userData) {
+          currentUser = {
+            username: userData.username,
+            avatar: '👤',
+            isGuest: false,
+            id: user.uid,
+            stats: {
+              games: userData.gamesPlayed || 0,
+              wins: userData.totalWins || 0,
+              winRate: userData.gamesPlayed ? Math.round((userData.totalWins / userData.gamesPlayed) * 100) : 0
+            }
+          };
+          gameState.balance = userData.coins || 1000;
+          updateHeaderForUser();
+          updateUI();
+          loadUserDataFromFirebase(currentUser.id);
+          console.log("✅ Auto-logged in:", userData.username);
+        }
+      });
+    }
+  });
+  
   // Make functions globally available
-  window.showLiveNotification = showLiveNotification;
-  window.toggleNotifications = toggleNotifications;
-  window.openLiveEvents = openLiveEvents;
-  window.closeLiveEvents = closeLiveEvents;
-  window.openLivePlayers = openLivePlayers;
-  window.refreshLeaderboard = refreshLeaderboard;
-  window.closeAllSections = closeAllSections;
-  window.showPopup = showPopup;
-  window.closePopup = closePopup;
+  window.openAuthModal = openAuthModal;
+  window.switchAuthTab = switchAuthTab;
+  window.closeAuth = closeAuth;
+  window.guestLogin = guestLogin;
+  window.openProfile = openProfile;
+  window.closeProfile = closeProfile;
+  window.logout = logout;
   window.openVIPPopup = openVIPPopup;
   window.closeVIPPopup = closeVIPPopup;
   window.unlockVIP = unlockVIP;
@@ -2122,6 +1979,8 @@ document.addEventListener('DOMContentLoaded', () => {
   window.openMissions = openMissions;
   window.closeMissions = closeMissions;
   window.claimMissionReward = claimMissionReward;
+  window.openEvents = openEvents;
+  window.closeEvents = closeEvents;
   window.openSupport = openSupport;
   window.closeSupport = closeSupport;
   window.openSupportBot = openSupportBot;
@@ -2132,15 +1991,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.purchaseCoins = purchaseCoins;
   window.enterGame = enterGame;
   window.exitGame = exitGame;
-  window.guestLogin = guestLogin;
-  window.openProfile = openProfile;
-  window.closeProfile = closeProfile;
-  window.logout = logout;
-  window.openAuthModal = openAuthModal;
-  window.switchAuthTab = switchAuthTab;
-  window.closeAuth = closeAuth;
   window.handleLoginSubmit = handleLoginSubmit;
   window.handleRegisterSubmit = handleRegisterSubmit;
+  window.closePopup = closePopup;
   
-  console.log("✅ Royal Match Live ready!");
+  console.log("✅ Royal Match fully loaded!");
 });
