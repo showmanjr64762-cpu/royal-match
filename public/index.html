@@ -2,13 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Royal Match - Premium Casino</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css">
   
   <!-- Favicon -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👑</text></svg>">
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="theme-emerald">
   <div class="pattern-overlay"></div>
@@ -44,7 +52,6 @@
         <!-- LOGIN FORM -->
         <form id="loginForm" class="auth-form active" onsubmit="event.preventDefault(); handleLoginSubmit(this)">
           <div id="loginErrors" class="error-message"></div>
-          <div id="loginSuccess" class="success-message"></div>
           
           <div class="form-group">
             <label class="form-label">Email</label>
@@ -75,7 +82,6 @@
         <!-- REGISTER FORM -->
         <form id="registerForm" class="auth-form" onsubmit="event.preventDefault(); handleRegisterSubmit(this)">
           <div id="registerErrors" class="error-message"></div>
-          <div id="registerSuccess" class="success-message"></div>
           
           <div class="form-group">
             <label class="form-label">Username</label>
@@ -88,13 +94,18 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label">Referral Code (Optional)</label>
+            <input type="text" name="referralCode" class="form-input" placeholder="Enter referral code if you have one">
+          </div>
+
+          <div class="form-group">
             <label class="form-label">Password</label>
-            <input type="password" name="password_1" class="form-input" placeholder="Min 6 characters" required minlength="6">
+            <input type="password" name="password" class="form-input" placeholder="Min 6 characters" required minlength="6">
           </div>
 
           <div class="form-group">
             <label class="form-label">Confirm Password</label>
-            <input type="password" name="password_2" class="form-input" placeholder="Confirm password" required>
+            <input type="password" name="confirmPassword" class="form-input" placeholder="Confirm password" required>
           </div>
 
           <button type="submit" class="auth-btn">Register</button>
@@ -112,7 +123,7 @@
     <div class="profile-container">
       <div class="profile-header">
         <button class="profile-close" onclick="closeProfile()">×</button>
-        <div class="profile-avatar-large" id="profileAvatarLarge">
+        <div class="profile-avatar-large" id="profileAvatarLarge" onclick="changeAvatar()">
           <span id="currentAvatarDisplay">👤</span>
         </div>
         <div class="profile-name" id="profileNameDisplay">Guest User</div>
@@ -122,17 +133,45 @@
       <div class="profile-content">
         <div class="profile-stats">
           <div class="profile-stat">
-            <div class="stat-number" id="profileGames">0</div>
-            <div class="stat-label">Games</div>
+            <div class="stat-number" id="profileCoins">0</div>
+            <div class="stat-label">Coins</div>
+          </div>
+          <div class="profile-stat">
+            <div class="stat-number" id="profileBets">0</div>
+            <div class="stat-label">Total Bets</div>
           </div>
           <div class="profile-stat">
             <div class="stat-number" id="profileWins">0</div>
             <div class="stat-label">Wins</div>
           </div>
-          <div class="profile-stat">
-            <div class="stat-number" id="profileWinRate">0%</div>
-            <div class="stat-label">Win Rate</div>
+        </div>
+
+        <div class="profile-withdrawal-section">
+          <h3>Withdrawal Account</h3>
+          <div class="withdrawal-account-fields">
+            <div class="form-group">
+              <label class="form-label">JazzCash Number</label>
+              <input type="tel" id="jazzcashNumber" class="form-input" placeholder="03xxxxxxxxx" pattern="03[0-9]{9}" maxlength="11">
+              <small class="form-hint">Must start with 03 (e.g., 03001234567)</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Easypaisa Number</label>
+              <input type="tel" id="easypaisaNumber" class="form-input" placeholder="03xxxxxxxxx" pattern="03[0-9]{9}" maxlength="11">
+              <small class="form-hint">Must start with 03 (e.g., 03001234567)</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bank Account (IBAN)</label>
+              <input type="text" id="bankAccount" class="form-input" placeholder="PK36SCBL0000001234567890">
+            </div>
+            <button class="auth-btn" onclick="saveWithdrawalAccounts()">Save Account Details</button>
           </div>
+        </div>
+
+        <button class="change-username-btn" onclick="showEditUsername()" id="editUsernameBtn">Change Username</button>
+        <div class="profile-edit-section" id="editUsernameSection" style="display: none;">
+          <input type="text" id="newUsername" class="form-input" placeholder="New username">
+          <button class="auth-btn" onclick="updateUsername()">Update</button>
+          <button class="auth-btn register" onclick="cancelEdit()">Cancel</button>
         </div>
 
         <button class="logout-btn" onclick="logout()">Logout</button>
@@ -140,96 +179,250 @@
     </div>
   </div>
 
-  <!-- Game Entry Loader -->
-  <div class="game-entry-loader" id="gameEntryLoader">
-    <div class="game-loader-content">
-      <div class="game-loader-icon">👑</div>
-      <div class="game-loader-text">ROYAL MATCH</div>
-      <div class="game-loader-subtext">Loading Game Table...</div>
-      <div class="loader-bar">
-        <div class="loader-bar-fill"></div>
+  <!-- Avatar Selection Modal -->
+  <div class="popup-overlay" id="avatarPopup">
+    <div class="popup-content" style="max-width: 400px;">
+      <div class="popup-icon">🎨</div>
+      <div class="popup-title">Choose Avatar</div>
+      <div class="avatar-grid">
+        <div class="avatar-option" onclick="selectAvatar('👤')">👤</div>
+        <div class="avatar-option" onclick="selectAvatar('👑')">👑</div>
+        <div class="avatar-option" onclick="selectAvatar('🦁')">🦁</div>
+        <div class="avatar-option" onclick="selectAvatar('🐉')">🐉</div>
+        <div class="avatar-option" onclick="selectAvatar('🦅')">🦅</div>
+        <div class="avatar-option" onclick="selectAvatar('🐺')">🐺</div>
+        <div class="avatar-option" onclick="selectAvatar('🦊')">🦊</div>
+        <div class="avatar-option" onclick="selectAvatar('🐼')">🐼</div>
       </div>
+      <button class="popup-close" onclick="closeAvatarPopup()">Cancel</button>
     </div>
   </div>
 
-  <!-- Popups -->
-  <div class="popup-overlay" id="successPopup">
-    <div class="popup-content">
-      <div class="popup-icon">✅</div>
-      <div class="popup-title">Success</div>
-      <div class="popup-text" id="popupMessage">Operation completed successfully</div>
-      <button class="popup-close" onclick="closePopup()">OK</button>
-    </div>
-  </div>
-
-  <div class="popup-overlay" id="vipPopup">
-    <div class="popup-content">
-      <div class="popup-icon">👑</div>
-      <div class="popup-title">VIP Room Unlock</div>
-      <div class="popup-text">Bet ₨100,000 to unlock exclusive VIP room with premium features and higher rewards!</div>
+  <!-- Withdraw Popup -->
+  <div class="popup-overlay" id="withdrawPopup">
+    <div class="popup-content" style="max-width: 400px;">
+      <div class="popup-icon">💸</div>
+      <div class="popup-title">Withdraw Funds</div>
+      <div class="popup-text">
+        <div style="margin-bottom: 1rem;">
+          <p>Available Balance: <strong id="withdrawBalance">0</strong> coins</p>
+          <p style="font-size: 0.85rem; color: #888; margin-top: 0.5rem;">Minimum withdrawal: 1000 coins</p>
+        </div>
+        <div class="withdraw-options">
+          <select id="withdrawMethod" class="form-input" style="margin-bottom: 1rem;">
+            <option value="jazzcash">JazzCash</option>
+            <option value="easypaisa">Easypaisa</option>
+            <option value="bank">Bank Transfer</option>
+          </select>
+          <div id="accountDisplay" class="account-display" style="margin-bottom: 1rem; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 8px;"></div>
+          <input type="number" id="withdrawAmount" class="form-input" placeholder="Amount" min="1000" style="margin-bottom: 1rem;">
+        </div>
+      </div>
       <div class="popup-btn-group">
-        <button class="popup-btn popup-btn-confirm" onclick="unlockVIP()">Unlock VIP</button>
-        <button class="popup-btn popup-btn-cancel" onclick="closeVIPPopup()">Cancel</button>
+        <button class="popup-btn popup-btn-confirm" onclick="processWithdraw()">Request Withdrawal</button>
+        <button class="popup-btn popup-btn-cancel" onclick="closeWithdrawPopup()">Cancel</button>
       </div>
     </div>
   </div>
 
-  <!-- Settings Modal -->
-  <div class="modal-overlay" id="settingsModal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <span class="modal-title">⚙️ Settings</span>
-        <button class="modal-close" onclick="closeModal('settingsModal')">×</button>
+  <!-- Withdrawal Loading Screen -->
+  <div class="withdrawal-loading" id="withdrawalLoading">
+    <div class="withdrawal-loading-content">
+      <div class="loading-spinner"></div>
+      <h3>Processing Withdrawal Request</h3>
+      <p>Please wait while we verify your request...</p>
+      <div class="loading-progress">
+        <div class="loading-progress-fill" id="loadingProgressFill"></div>
       </div>
-      
-      <div class="settings-option">
-        <div class="settings-label">
-          <span class="settings-icon">🔊</span>
-          <span>Sound Effects</span>
-        </div>
-        <div class="toggle-switch active" id="soundToggle" onclick="toggleSound()"></div>
+      <p id="loadingTimer">Time remaining: 60s</p>
+      <button class="cancel-withdraw-btn" onclick="cancelWithdrawal()">Cancel Request</button>
+    </div>
+  </div>
+
+  <!-- Notification Panel -->
+  <div class="notification-panel" id="notificationPanel">
+    <div class="notification-header">
+      <h3><i class="fas fa-bell"></i> Notifications</h3>
+      <div class="notification-actions">
+        <button class="notification-action-btn" onclick="deleteAllNotifications()" title="Delete all">
+          <i class="fas fa-trash-alt"></i>
+        </button>
+        <button class="close-notification" onclick="closeNotificationPanel()">×</button>
       </div>
-
-      <div class="settings-option">
-        <div class="settings-label">
-          <span class="settings-icon">🔔</span>
-          <span>Notifications</span>
+    </div>
+    <div class="notification-list" id="notificationList">
+      <div class="notification-item">
+        <div class="notification-icon">📢</div>
+        <div class="notification-content">
+          <div class="notification-title">Welcome to Royal Match!</div>
+          <div class="notification-message">Start playing and win big prizes!</div>
+          <div class="notification-time">Just now</div>
         </div>
-        <div class="toggle-switch active" onclick="this.classList.toggle('active')"></div>
+        <button class="delete-notification" onclick="deleteNotification(this)">×</button>
       </div>
+    </div>
+  </div>
 
-      <button class="change-theme-btn" onclick="showThemeSelector()">
-        🎨 Change Theme
-      </button>
+  <!-- Referral Section -->
+  <div class="fullscreen-section" id="referralSection">
+    <div class="fullscreen-header">
+      <button class="back-btn" onclick="closeReferral()">← Back</button>
+      <span class="fullscreen-title">🤝 Refer & Earn</span>
+    </div>
+    <div class="fullscreen-content">
+      <div class="referral-container">
+        <!-- Referral Stats Card -->
+        <div class="referral-stats-card">
+          <div class="referral-stats-header">
+            <i class="fas fa-chart-line"></i>
+            <h3>Your Referral Earnings</h3>
+          </div>
+          <div class="referral-stats-grid">
+            <div class="stat-item">
+              <div class="stat-label">Total Referrals</div>
+              <div class="stat-value" id="totalReferrals">0</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Total Earnings</div>
+              <div class="stat-value amount-positive" id="totalEarnings">0</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label">Active Referrals</div>
+              <div class="stat-value" id="activeReferrals">0</div>
+            </div>
+          </div>
+        </div>
 
-      <div class="theme-selector" id="themeSelector">
-        <div class="theme-btn active" onclick="changeTheme('emerald')">
-          <div class="theme-preview" style="background: linear-gradient(145deg, #064e3b, #ffd700);"></div>
-          <span>Emerald Gold (Default)</span>
+        <!-- Referral Code Card -->
+        <div class="referral-code-card">
+          <h3><i class="fas fa-link"></i> Your Referral Link</h3>
+          <div class="referral-code-display">
+            <span id="referralCodeDisplay">LOADING...</span>
+            <button class="copy-btn" onclick="copyReferralCode()">
+              <i class="fas fa-copy"></i> Copy
+            </button>
+          </div>
+          <div class="referral-link-display">
+            <input type="text" id="referralLinkInput" readonly>
+            <button class="copy-btn" onclick="copyReferralLink()">
+              <i class="fas fa-copy"></i>
+            </button>
+          </div>
+          <div class="referral-info">
+            <p><i class="fas fa-info-circle"></i> Share your referral link with friends. When they sign up and deposit, you earn commission!</p>
+          </div>
         </div>
-        <div class="theme-btn" onclick="changeTheme('royal-purple')">
-          <div class="theme-preview" style="background: linear-gradient(145deg, #581c87, #fbbf24);"></div>
-          <span>Royal Purple</span>
+
+        <!-- Commission Rates Card -->
+        <div class="commission-rates-card">
+          <h3><i class="fas fa-percent"></i> Commission Structure</h3>
+          <div class="commission-table">
+            <div class="commission-row">
+              <span>Level 1 (Direct Referral)</span>
+              <span class="amount-positive">5% of deposit</span>
+            </div>
+            <div class="commission-row">
+              <span>Level 2 (Referral's Referral)</span>
+              <span class="amount-positive">2% of deposit</span>
+            </div>
+            <div class="commission-row">
+              <span>Level 3+</span>
+              <span class="amount-positive">1% of deposit</span>
+            </div>
+            <div class="commission-row bonus">
+              <span>🎁 Sign-up Bonus</span>
+              <span class="amount-positive">50 coins</span>
+            </div>
+          </div>
         </div>
-        <div class="theme-btn" onclick="changeTheme('midnight-blue')">
-          <div class="theme-preview" style="background: linear-gradient(145deg, #1e3a8a, #e5e7eb);"></div>
-          <span>Midnight Blue</span>
+
+        <!-- Referral List -->
+        <div class="referral-list-card">
+          <h3><i class="fas fa-users"></i> Your Referrals</h3>
+          <div class="referral-filters">
+            <button class="filter-btn active" onclick="filterReferrals('all')">All</button>
+            <button class="filter-btn" onclick="filterReferrals('active')">Active</button>
+            <button class="filter-btn" onclick="filterReferrals('inactive')">Inactive</button>
+          </div>
+          <div class="table-container">
+            <table id="referralsTable">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Level</th>
+                  <th>Deposits</th>
+                  <th>Your Commission</th>
+                  <th>Status</th>
+                  <th>Joined</th>
+                </thead>
+              <tbody id="referralsBody">
+                <tr><td colspan="6" style="text-align:center;">Loading referrals...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="theme-btn" onclick="changeTheme('crimson-velvet')">
-          <div class="theme-preview" style="background: linear-gradient(145deg, #991b1b, #ffd700);"></div>
-          <span>Crimson Velvet</span>
+
+        <!-- Referral Milestones -->
+        <div class="milestones-card">
+          <h3><i class="fas fa-trophy"></i> Referral Milestones</h3>
+          <div class="milestones-list">
+            <div class="milestone-item" data-milestone="5">
+              <div class="milestone-info">
+                <span>🎯 5 Referrals</span>
+                <span>+500 Coins</span>
+              </div>
+              <button class="milestone-btn" onclick="claimMilestone(5)" disabled>Claim</button>
+            </div>
+            <div class="milestone-item" data-milestone="10">
+              <div class="milestone-info">
+                <span>🏆 10 Referrals</span>
+                <span>+1500 Coins</span>
+              </div>
+              <button class="milestone-btn" onclick="claimMilestone(10)" disabled>Claim</button>
+            </div>
+            <div class="milestone-item" data-milestone="25">
+              <div class="milestone-info">
+                <span>👑 25 Referrals</span>
+                <span>+5000 Coins</span>
+              </div>
+              <button class="milestone-btn" onclick="claimMilestone(25)" disabled>Claim</button>
+            </div>
+            <div class="milestone-item" data-milestone="50">
+              <div class="milestone-info">
+                <span>💎 50 Referrals</span>
+                <span>+15000 Coins</span>
+              </div>
+              <button class="milestone-btn" onclick="claimMilestone(50)" disabled>Claim</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Referral Leaderboard -->
+        <div class="leaderboard-card">
+          <h3><i class="fas fa-crown"></i> Top Referrers</h3>
+          <div class="table-container">
+            <table id="referrerLeaderboard">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Player</th>
+                  <th>Referrals</th>
+                  <th>Earnings</th>
+                </thead>
+              <tbody id="leaderboardBody">
+                <tr><td colspan="4" style="text-align:center;">Loading...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Offers Section -->
+  <!-- Offers Section (NEW - Replaces Referral in Bottom Nav) -->
   <div class="fullscreen-section" id="offersSection">
     <div class="fullscreen-header">
-      <button class="back-btn" onclick="closeOffers()">
-        <span>←</span>
-        <span>Back</span>
-      </button>
+      <button class="back-btn" onclick="closeOffers()">← Back</button>
       <span class="fullscreen-title">🎁 Offers</span>
     </div>
     <div class="fullscreen-content">
@@ -263,34 +456,10 @@
     </div>
   </div>
 
-  <!-- Shop Section -->
-  <div class="fullscreen-section" id="shopSection">
-    <div class="fullscreen-header">
-      <button class="back-btn" onclick="closeShop()">
-        <span>←</span>
-        <span>Back</span>
-      </button>
-      <span class="fullscreen-title">🛒 Shop</span>
-    </div>
-    <div class="fullscreen-content">
-      <div class="shop-grid" id="shopGrid"></div>
-
-      <!-- Pakistani Payment Methods -->
-      <h2 class="section-title" style="margin-top: 2rem;">
-        <span>🇵🇰</span>
-        <span>Pakistani Payment Methods</span>
-      </h2>
-      <div class="payment-methods-grid" id="paymentMethodsGrid"></div>
-    </div>
-  </div>
-
   <!-- Missions Section -->
   <div class="fullscreen-section" id="missionsSection">
     <div class="fullscreen-header">
-      <button class="back-btn" onclick="closeMissions()">
-        <span>←</span>
-        <span>Back</span>
-      </button>
+      <button class="back-btn" onclick="closeMissions()">← Back</button>
       <span class="fullscreen-title">🎯 Missions</span>
     </div>
     <div class="fullscreen-content" id="missionsContent"></div>
@@ -299,10 +468,7 @@
   <!-- Events Section -->
   <div class="fullscreen-section" id="eventsSection">
     <div class="fullscreen-header">
-      <button class="back-btn" onclick="closeEvents()">
-        <span>←</span>
-        <span>Back</span>
-      </button>
+      <button class="back-btn" onclick="closeEvents()">← Back</button>
       <span class="fullscreen-title">🎉 Events</span>
     </div>
     <div class="fullscreen-content">
@@ -315,8 +481,7 @@
           </div>
         </div>
         <div class="event-description">
-          Spin the wheel every day for free coins! Win up to 10,000 coins daily. 
-          Don't miss your chance to win big with our daily lucky spin event.
+          Spin the wheel every day for free coins! Win up to 10,000 coins daily.
         </div>
         <div class="event-reward">Free Entry</div>
       </div>
@@ -330,8 +495,7 @@
           </div>
         </div>
         <div class="event-description">
-          Compete with players worldwide in our weekly championship. 
-          Top 100 players win exclusive prizes and special badges.
+          Compete with players worldwide in our weekly championship.
         </div>
         <div class="event-reward">Prize Pool: 1M Coins</div>
       </div>
@@ -344,11 +508,8 @@
           </div>
         </div>
         <div class="event-description">
-          Royal Match is a thrilling card matching game where strategy meets luck. 
-          Match 12 pairs to win big, but beware of the bombs! 
-          Start with a bet, flip cards to find matches, and cash out anytime. 
-          The more pairs you match, the higher your multiplier grows!
-          Golden Cards: Find a pair of golden cards to win 20x your bet instantly!
+          Royal Match is a thrilling card matching game where strategy meets luck.
+          Match 12 pairs to win big, but beware of the bombs!
         </div>
       </div>
 
@@ -361,8 +522,7 @@
           </div>
         </div>
         <div class="event-description">
-          Get 2x experience points and special bonuses every weekend. 
-          Play more, win more during our special weekend events!
+          Get 2x experience points and special bonuses every weekend.
         </div>
         <div class="event-reward">2x XP + Bonuses</div>
       </div>
@@ -372,10 +532,7 @@
   <!-- Support Section -->
   <div class="fullscreen-section" id="supportSection">
     <div class="fullscreen-header">
-      <button class="back-btn" onclick="closeSupport()">
-        <span>←</span>
-        <span>Back</span>
-      </button>
+      <button class="back-btn" onclick="closeSupport()">← Back</button>
       <span class="fullscreen-title">🎧 Support</span>
     </div>
     <div class="fullscreen-content">
@@ -395,10 +552,141 @@
               <p>Available 24/7</p>
             </div>
           </div>
+          <div class="support-item">
+            <div class="support-icon-box">📝</div>
+            <div class="support-item-info">
+              <h4>Additional Support</h4>
+              <p>Send detailed message to admin</p>
+            </div>
+          </div>
         </div>
 
         <button class="support-btn" onclick="openSupportBot()">💬 Open AI Support Chat</button>
+        <button class="support-btn additional" onclick="openAdditionalSupport()" style="margin-top: 1rem; background: linear-gradient(145deg, #3366ff, #2244cc);">📝 Additional Support</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Additional Support Modal -->
+  <div class="fullscreen-section" id="additionalSupportSection">
+    <div class="fullscreen-header">
+      <button class="back-btn" onclick="closeAdditionalSupport()">← Back</button>
+      <span class="fullscreen-title">📝 Additional Support</span>
+    </div>
+    <div class="fullscreen-content">
+      <div class="support-ticket-container">
+        <div class="ticket-form">
+          <h3>Send Message to Admin</h3>
+          <textarea id="supportMessage" placeholder="Describe your issue in detail... (No character limit)" rows="8"></textarea>
+          <button class="auth-btn" onclick="sendSupportMessage()" style="margin-top: 1rem;">Send Message</button>
+        </div>
+        <div class="ticket-history" id="ticketHistory">
+          <h3>Your Messages</h3>
+          <div class="ticket-list" id="ticketList">
+            <div class="ticket-item">
+              <div class="ticket-message">No messages yet</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Entry Loader -->
+  <div class="game-entry-loader" id="gameEntryLoader">
+    <div class="game-loader-content">
+      <div class="game-loader-icon">👑</div>
+      <div class="game-loader-text">ROYAL MATCH</div>
+      <div class="game-loader-subtext">Loading Game Table...</div>
+      <div class="loader-bar">
+        <div class="loader-bar-fill"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Popup -->
+  <div class="popup-overlay" id="successPopup">
+    <div class="popup-content">
+      <div class="popup-icon">✅</div>
+      <div class="popup-title" id="popupTitle">Success</div>
+      <div class="popup-text" id="popupMessage"></div>
+      <button class="popup-close" onclick="closePopup()">OK</button>
+    </div>
+  </div>
+
+  <!-- VIP Popup -->
+  <div class="popup-overlay" id="vipPopup">
+    <div class="popup-content">
+      <div class="popup-icon">👑</div>
+      <div class="popup-title">VIP Room Unlock</div>
+      <div class="popup-text">Bet ₨100,000 to unlock exclusive VIP room with premium features and higher rewards!</div>
+      <div class="popup-btn-group">
+        <button class="popup-btn popup-btn-confirm" onclick="unlockVIP()">Unlock VIP</button>
+        <button class="popup-btn popup-btn-cancel" onclick="closeVIPPopup()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="modal-title">⚙️ Settings</span>
+        <button class="modal-close" onclick="closeModal('settingsModal')">×</button>
+      </div>
+      
+      <div class="settings-option">
+        <div class="settings-label">
+          <span class="settings-icon">🔊</span>
+          <span>Sound Effects</span>
+        </div>
+        <div class="toggle-switch active" id="soundToggle" onclick="toggleSound()"></div>
+      </div>
+
+      <div class="settings-option">
+        <div class="settings-label">
+          <span class="settings-icon">🔔</span>
+          <span>Notifications</span>
+        </div>
+        <div class="toggle-switch active" id="notificationToggle" onclick="toggleNotifications()"></div>
+      </div>
+
+      <button class="change-theme-btn" onclick="showThemeSelector()">
+        🎨 Change Theme
+      </button>
+
+      <div class="theme-selector" id="themeSelector">
+        <div class="theme-btn active" onclick="changeTheme('emerald')">
+          <div class="theme-preview" style="background: linear-gradient(145deg, #064e3b, #ffd700);"></div>
+          <span>Emerald Gold</span>
+        </div>
+        <div class="theme-btn" onclick="changeTheme('royal-purple')">
+          <div class="theme-preview" style="background: linear-gradient(145deg, #581c87, #fbbf24);"></div>
+          <span>Royal Purple</span>
+        </div>
+        <div class="theme-btn" onclick="changeTheme('midnight-blue')">
+          <div class="theme-preview" style="background: linear-gradient(145deg, #1e3a8a, #e5e7eb);"></div>
+          <span>Midnight Blue</span>
+        </div>
+        <div class="theme-btn" onclick="changeTheme('crimson-velvet')">
+          <div class="theme-preview" style="background: linear-gradient(145deg, #991b1b, #ffd700);"></div>
+          <span>Crimson Velvet</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop Section -->
+  <div class="fullscreen-section" id="shopSection">
+    <div class="fullscreen-header">
+      <button class="back-btn" onclick="closeShop()">← Back</button>
+      <span class="fullscreen-title">🛒 Shop</span>
+    </div>
+    <div class="fullscreen-content">
+      <div class="shop-grid" id="shopGrid"></div>
+
+      <h2 class="section-title" style="margin-top: 2rem;">💳 Payment Method</h2>
+      <div class="payment-methods-grid" id="paymentMethodsGrid"></div>
     </div>
   </div>
 
@@ -411,30 +699,36 @@
         </div>
         <div class="user-info">
           <div class="username" id="headerUsername">Guest</div>
-          <div class="user-status" id="userStatus">Tap to login</div>
+          <div class="user-status" id="userStatus">Guest Mode</div>
         </div>
         <div class="balance-container">
           <div class="coin-icon">🪙</div>
           <span class="balance-amount" id="lobbyBalance">0</span>
         </div>
+        <div class="notification-badge" id="notificationBadge" style="display: none;">0</div>
       </div>
 
-      <div class="header-center">
+      <div class="header-center" id="authButtons">
         <button class="auth-header-btn" onclick="openAuthModal('login')">🔑 Login</button>
         <button class="auth-header-btn register" onclick="openAuthModal('register')">📝 Register</button>
       </div>
 
       <div class="header-actions">
+        <!-- Referral Button moved to top next to notification -->
+        <button class="header-btn" title="Refer & Earn" onclick="openReferral()">
+          <i class="fas fa-users"></i>
+        </button>
+        <button class="header-btn" title="Notifications" onclick="openNotificationPanel()">
+          <i class="fas fa-bell"></i>
+          <span class="notification-badge-small" id="notificationBadgeSmall" style="display: none;">0</span>
+        </button>
         <button class="header-btn" title="Settings" onclick="openModal('settingsModal')">⚙️</button>
       </div>
     </header>
 
     <div class="lobby-content">
       <div class="games-section">
-        <h2 class="section-title">
-          <span>🎮</span>
-          <span>Featured Game</span>
-        </h2>
+        <h2 class="section-title">🎮 Featured Game</h2>
         
         <div class="games-grid">
           <div class="game-tile hot" onclick="enterGame()">
@@ -453,16 +747,16 @@
           <span>🏆</span>
           <span class="leaderboard-title">Today's Champions</span>
         </div>
-        
         <div class="leaderboard-list" id="leaderboardList"></div>
       </aside>
     </div>
 
     <nav class="bottom-nav">
-      <button class="nav-item active" onclick="setActiveNav(this)">
+      <button class="nav-item active" onclick="setActiveNav(this); exitGame()">
         <span class="nav-icon">🏠</span>
         <span class="nav-label">Home</span>
       </button>
+      <!-- Offers Section added to bottom navigation -->
       <button class="nav-item" onclick="openOffers(); setActiveNav(this)">
         <span class="nav-icon">🎁</span>
         <span class="nav-label">Offers</span>
@@ -480,10 +774,7 @@
 
   <!-- Game View -->
   <div class="game-view" id="gameView">
-    <button class="back-to-lobby" onclick="exitGame()">
-      <span>←</span>
-      <span>Lobby</span>
-    </button>
+    <button class="back-to-lobby" onclick="exitGame()">← Lobby</button>
 
     <div class="game-screen" id="gameScreen">
       <div class="game-header">
@@ -520,26 +811,26 @@
       <div class="bet-panel" id="betPanel">
         <div class="bet-panel-title">Select Your Bet</div>
         <div class="bet-options" id="betOptions">
-          <button class="bet-option" data-bet="10" type="button">10</button>
-          <button class="bet-option" data-bet="25" type="button">25</button>
-          <button class="bet-option" data-bet="50" type="button">50</button>
-          <button class="bet-option" data-bet="100" type="button">100</button>
-          <button class="bet-option" data-bet="250" type="button">250</button>
-          <button class="bet-option" data-bet="500" type="button">500</button>
+          <button class="bet-option" data-bet="10">10</button>
+          <button class="bet-option" data-bet="25">25</button>
+          <button class="bet-option" data-bet="50">50</button>
+          <button class="bet-option" data-bet="100">100</button>
+          <button class="bet-option" data-bet="250">250</button>
+          <button class="bet-option" data-bet="500">500</button>
         </div>
         <div class="custom-bet-row">
-          <input type="number" class="custom-bet-input" id="customBet" placeholder="Custom bet" min="10" max="5000" />
-          <button class="custom-bet-btn" id="customBetBtn" type="button">SET</button>
+          <input type="number" class="custom-bet-input" id="customBet" placeholder="Custom bet" min="10" max="5000">
+          <button class="custom-bet-btn" id="customBetBtn">SET</button>
         </div>
       </div>
 
-      <div class="action-buttons" id="actionButtons">
-        <button class="action-btn start-btn" id="startBtn" type="button">START GAME</button>
-        <button class="action-btn cashout-btn hidden" id="cashoutBtn" type="button">CASH OUT</button>
-        <button class="action-btn continue-btn hidden" id="continueBtn" type="button">CONTINUE</button>
+      <div class="action-buttons">
+        <button class="action-btn start-btn" id="startBtn">START GAME</button>
+        <button class="action-btn cashout-btn hidden" id="cashoutBtn">CASH OUT</button>
+        <button class="action-btn continue-btn hidden" id="continueBtn">CONTINUE</button>
       </div>
 
-      <div class="message-display" id="messageDisplay">
+      <div class="message-display">
         <p class="message-text" id="messageText">Select your bet and tap START GAME</p>
       </div>
 
@@ -563,37 +854,15 @@
     <div class="win-label">YOU WON</div>
     <div class="win-amount" id="winAmountDisplay">0</div>
     <div class="win-multiplier" id="winMultiplierDisplay">0x</div>
-    <button class="play-again-btn" id="playAgainWin" type="button">PLAY AGAIN</button>
+    <button class="play-again-btn" id="playAgainWin">PLAY AGAIN</button>
   </div>
 
   <div class="lose-overlay" id="loseOverlay">
     <div class="lose-icon">💣</div>
     <div class="lose-text">BOOM!</div>
     <div class="lose-subtext" id="loseSubtext">You lost everything</div>
-    <button class="play-again-btn" id="playAgainLose" type="button">TRY AGAIN</button>
+    <button class="play-again-btn" id="playAgainLose">TRY AGAIN</button>
   </div>
-
-  <!-- Firebase -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
-  <script>
-    // Firebase Configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyDgxEgtvrugTxXL5l10hvzQBILmqUzWBLA",
-      authDomain: "nj777-2756c.firebaseapp.com",
-      databaseURL: "https://nj777-2756c-default-rtdb.firebaseio.com",
-      projectId: "nj777-2756c",
-      storageBucket: "nj777-2756c.appspot.com",
-      messagingSenderId: "388549837175",
-      appId: "1:388549837175:web:6c831e431443d8227c2172"
-    };
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    console.log("✅ Firebase initialized");
-  </script>
 
   <!-- Game Script -->
   <script src="script.js"></script>
