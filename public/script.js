@@ -22,15 +22,15 @@ let currentUser = null;
 let isInGame = false;
 let autoRefreshInterval = null;
 let currentWithdrawalId = null;
+let countdownInterval = null;
 let notifications = [];
-let savedAccounts = { jazzcash: "", easypaisa: "", bank: "" };
 
-// ===== REFERRAL SYSTEM CONSTANTS =====
+// ===== REFERRAL CONSTANTS =====
 const REFERRAL_CONFIG = {
   SIGNUP_BONUS: 50,
   MIN_DEPOSIT_FOR_COMMISSION: 3000,
-  COMMISSION_RATE: 0.10, // 10% commission
-  DEPOSIT_BONUS_RATE: 0.025, // 2.5% bonus on every deposit
+  COMMISSION_RATE: 0.10,
+  DEPOSIT_BONUS_RATE: 0.025,
   MILESTONE_REWARDS: { 5: 500, 10: 1500, 25: 5000, 50: 15000 }
 };
 
@@ -49,7 +49,8 @@ const gameState = {
   matchedCards: new Set(),
   totalBets: 0,
   totalWins: 0,
-  lastGameResult: null
+  lastGameResult: null,
+  lastGameTimestamp: 0
 };
 
 // ===== REFERRAL DATA =====
@@ -63,7 +64,14 @@ let referralData = {
   milestones: { 5: false, 10: false, 25: false, 50: false }
 };
 
-// ===== GAME CONFIGURATION =====
+// ===== WITHDRAWAL ACCOUNTS =====
+let savedAccounts = {
+  jazzcash: "",
+  easypaisa: "",
+  bank: ""
+};
+
+// ===== GAME CONFIG =====
 const CONFIG = {
   PAIRS_COUNT: 12,
   BOMB_COUNT: 4,
@@ -81,6 +89,13 @@ const CARD_SUITS = [
   { symbol: '♦', color: 'red' },
   { symbol: '♣', color: 'black' }
 ];
+
+// ===== CHAMPIONS DATA =====
+const pakistaniNames = [
+  'Ahmed Hassan', 'Ali Khan', 'Bilal Ahmed', 'Hassan Ali', 'Muhammad Imran',
+  'Faisal Khan', 'Karim Abdul', 'Malik Saeed', 'Nasir Ahmed', 'Omar Khan'
+];
+const championAvatars = ['👑', '🥈', '🥉', '🎯', '💎', '🦁', '⭐', '🏆'];
 
 // ===== HELPER FUNCTIONS =====
 function formatNumber(num) {
@@ -105,10 +120,14 @@ function showPopup(title, text) {
   if (popupTitle) popupTitle.textContent = title;
   if (popupMessage) popupMessage.textContent = text;
   if (successPopup) successPopup.classList.add('active');
-
   setTimeout(() => {
     if (successPopup) successPopup.classList.remove('active');
   }, 3000);
+}
+
+function closePopup() {
+  const successPopup = document.getElementById('successPopup');
+  if (successPopup) successPopup.classList.remove('active');
 }
 
 // ===== FIREBASE FUNCTIONS =====
@@ -126,8 +145,10 @@ async function updateUserDataInFirebase(userId, updates) {
   try {
     await database.ref('users/' + userId).update(updates);
     console.log("✅ User data updated");
+    return true;
   } catch (error) {
     console.error("Error updating user data:", error);
+    return false;
   }
 }
 
@@ -142,101 +163,6 @@ function sendNotificationToPlayer(userId, title, message, icon = '📢') {
   });
 }
 
-// ===== DEPOSIT WITH 2.5% BONUS =====
-function purchaseCoins(amount, coins) {
-  if (!currentUser || currentUser.isGuest) {
-    showPopup('Login Required', 'Please login to purchase coins');
-    openAuthModal('login');
-    return;
-  }
-
-  // Calculate 2.5% bonus
-  const bonusRate = REFERRAL_CONFIG.DEPOSIT_BONUS_RATE;
-  const bonusCoins = Math.floor(coins * bonusRate);
-  const totalCoins = coins + bonusCoins;
-
-  gameState.balance += totalCoins;
-  updateUI();
-
-  // Save transaction with bonus info
-  const transactionRef = database.ref('transactions').push();
-  transactionRef.set({
-    userId: currentUser.id,
-    username: currentUser.username,
-    amount: amount,
-    coins: coins,
-    bonusCoins: bonusCoins,
-    totalCoins: totalCoins,
-    bonusRate: `${bonusRate * 100}%`,
-    type: 'purchase',
-    timestamp: new Date().toISOString()
-  });
-
-  updateUserDataInFirebase(currentUser.id, { coins: gameState.balance });
-
-  // Show bonus message
-  showPopup('Purchase Successful!', `+${formatNumber(totalCoins)} coins (Including ${bonusRate*100}% bonus: +${formatNumber(bonusCoins)})`);
-  
-  // Check for referral commission if deposit meets minimum
-  if (totalCoins >= REFERRAL_CONFIG.MIN_DEPOSIT_FOR_COMMISSION && currentUser.referredBy) {
-    processDepositForReferral(currentUser.id, totalCoins);
-  }
-  
-  if (audio) audio.playClick();
-}
-
-// ===== DEPOSIT COMMISSION FOR REFERRALS =====
-async function processDepositForReferral(userId, depositAmount) {
-  try {
-    const userSnap = await database.ref('users/' + userId).once('value');
-    const userData = userSnap.val();
-    
-    if (!userData.referredBy) return null;
-    
-    const referralsRef = database.ref('referrals');
-    const referralsSnap = await referralsRef.orderByChild('referredUserId').equalTo(userId).once('value');
-    
-    let referralRecord = null;
-    let referralId = null;
-    
-    for (const [id, ref] of Object.entries(referralsSnap.val() || {})) {
-      if (ref.referredUserId === userId && ref.status === 'pending') {
-        referralRecord = ref;
-        referralId = id;
-        break;
-      }
-    }
-    
-    if (!referralRecord) return null;
-    
-    const commission = Math.floor(depositAmount * REFERRAL_CONFIG.COMMISSION_RATE);
-    
-    const referrerRef = database.ref('users/' + referralRecord.referrerId);
-    const referrerSnap = await referrerRef.once('value');
-    const referrerData = referrerSnap.val();
-    
-    await referrerRef.update({
-      coins: (referrerData.coins || 0) + commission,
-      referralEarnings: (referrerData.referralEarnings || 0) + commission
-    });
-    
-    await database.ref('referrals/' + referralId).update({
-      status: 'active',
-      depositAmount: depositAmount,
-      commissionEarned: commission,
-      commissionPaid: true,
-      paidAt: new Date().toISOString()
-    });
-    
-    sendNotificationToPlayer(referralRecord.referrerId, '💰 Commission Earned!', `${userData.username} deposited ${depositAmount} coins! You earned ${commission} coins!`, '💰');
-    
-    return commission;
-  } catch (error) {
-    console.error("Error processing deposit commission:", error);
-    return null;
-  }
-}
-
 // ===== REFERRAL FUNCTIONS =====
 function generateReferralCode(username) {
   const prefix = username.substring(0, 3).toUpperCase();
@@ -246,7 +172,7 @@ function generateReferralCode(username) {
 
 async function createReferralCode(userId, username) {
   const referralCode = generateReferralCode(username);
-  await database.ref('users/' + userId).update({
+  await updateUserDataInFirebase(userId, {
     referralCode: referralCode,
     referralCount: 0,
     referralEarnings: 0,
@@ -263,38 +189,28 @@ function getReferralCodeFromURL() {
 
 async function applyReferral(referralCode, newUserId, newUsername) {
   if (!referralCode) return null;
-  
   try {
-    const usersRef = database.ref('users');
-    const snapshot = await usersRef.once('value');
-    const users = snapshot.val();
-    
+    const usersSnap = await database.ref('users').once('value');
+    const users = usersSnap.val();
     let referrerId = null;
-    let referrerData = null;
     
     for (const [id, user] of Object.entries(users)) {
       if (user.referralCode === referralCode && id !== newUserId) {
         referrerId = id;
-        referrerData = user;
         break;
       }
     }
     
     if (referrerId) {
-      await database.ref('users/' + newUserId).update({ 
-        referredBy: referrerId,
-        referredAt: new Date().toISOString()
+      await updateUserDataInFirebase(newUserId, { referredBy: referrerId, referredAt: new Date().toISOString() });
+      const referrerData = users[referrerId];
+      await updateUserDataInFirebase(referrerId, { 
+        referralCount: (referrerData.referralCount || 0) + 1,
+        coins: (referrerData.coins || 0) + REFERRAL_CONFIG.SIGNUP_BONUS,
+        referralEarnings: (referrerData.referralEarnings || 0) + REFERRAL_CONFIG.SIGNUP_BONUS
       });
       
-      const newReferralCount = (referrerData.referralCount || 0) + 1;
-      await database.ref('users/' + referrerId).update({
-        referralCount: newReferralCount,
-        activeReferrals: (referrerData.activeReferrals || 0) + 1
-      });
-      
-      const referralRef = database.ref('referrals').push();
-      await referralRef.set({
-        id: referralRef.key,
+      await database.ref('referrals').push({
         referrerId: referrerId,
         referrerUsername: referrerData.username,
         referredUserId: newUserId,
@@ -303,8 +219,7 @@ async function applyReferral(referralCode, newUserId, newUsername) {
         timestamp: new Date().toISOString()
       });
       
-      sendNotificationToPlayer(referrerId, '🎉 New Referral!', `${newUsername} signed up using your code!`, '🎉');
-      
+      sendNotificationToPlayer(referrerId, '🎉 New Referral!', `${newUsername} signed up using your code! You earned ${REFERRAL_CONFIG.SIGNUP_BONUS} coins!`, '🎉');
       return referrerId;
     }
     return null;
@@ -314,39 +229,84 @@ async function applyReferral(referralCode, newUserId, newUsername) {
   }
 }
 
+async function checkAndPayReferralCommission(userId, depositAmount) {
+  try {
+    const userSnap = await database.ref('users/' + userId).once('value');
+    const userData = userSnap.val();
+    
+    if (!userData.referredBy) return;
+    if (depositAmount < REFERRAL_CONFIG.MIN_DEPOSIT_FOR_COMMISSION) return;
+    
+    const referralsSnap = await database.ref('referrals').orderByChild('referredUserId').equalTo(userId).once('value');
+    let referralRecord = null;
+    let referralId = null;
+    
+    if (referralsSnap.val()) {
+      for (const [id, ref] of Object.entries(referralsSnap.val())) {
+        if (ref.referredUserId === userId && ref.status === 'pending') {
+          referralRecord = ref;
+          referralId = id;
+          break;
+        }
+      }
+    }
+    
+    if (!referralRecord) return;
+    
+    const commission = Math.floor(depositAmount * REFERRAL_CONFIG.COMMISSION_RATE);
+    const referrerRef = database.ref('users/' + referralRecord.referrerId);
+    const referrerSnap = await referrerRef.once('value');
+    const referrerData = referrerSnap.val();
+    
+    await referrerRef.update({
+      coins: (referrerData.coins || 0) + commission,
+      referralEarnings: (referrerData.referralEarnings || 0) + commission,
+      activeReferrals: (referrerData.activeReferrals || 0) + 1
+    });
+    
+    await database.ref('referrals/' + referralId).update({
+      status: 'active',
+      depositAmount: depositAmount,
+      commissionEarned: commission,
+      commissionPaid: true,
+      paidAt: new Date().toISOString()
+    });
+    
+    sendNotificationToPlayer(referralRecord.referrerId, '💰 Commission Earned!', `${userData.username} deposited ${depositAmount} coins! You earned ${commission} coins!`, '💰');
+    
+    if (currentUser && currentUser.id === referralRecord.referrerId) {
+      gameState.balance = (referrerData.coins || 0) + commission;
+      referralData.totalEarnings = (referrerData.referralEarnings || 0) + commission;
+      referralData.activeReferrals = (referrerData.activeReferrals || 0) + 1;
+      updateUI();
+      loadReferralData();
+    }
+  } catch (error) {
+    console.error("Error paying referral commission:", error);
+  }
+}
+
 async function loadReferralData() {
   if (!currentUser || currentUser.isGuest) return;
-  
   try {
-    const userSnap = await database.ref('users/' + currentUser.id).once('value');
-    const userData = userSnap.val();
+    const userData = await getUserDataFromFirebase(currentUser.id);
+    if (!userData) return;
     
     referralData.code = userData.referralCode;
     referralData.totalReferrals = userData.referralCount || 0;
     referralData.activeReferrals = userData.activeReferrals || 0;
     referralData.totalEarnings = userData.referralEarnings || 0;
-    referralData.milestones = userData.referralMilestones || { 5: false, 10: false, 25: false, 50: false };
-    
-    const baseUrl = window.location.origin;
-    referralData.link = `${baseUrl}/?ref=${referralData.code}`;
+    referralData.link = `${window.location.origin}/?ref=${referralData.code}`;
     
     const referralsSnap = await database.ref('referrals').orderByChild('referrerId').equalTo(currentUser.id).once('value');
     const referrals = referralsSnap.val();
-    
-    if (referrals) {
-      referralData.referrals = [];
-      for (const [id, ref] of Object.entries(referrals)) {
-        referralData.referrals.push({
-          id: id,
-          username: ref.referredUsername,
-          status: ref.status,
-          depositAmount: ref.depositAmount || 0,
-          commissionEarned: ref.commissionEarned || 0,
-          joined: ref.timestamp,
-          isActive: ref.status === 'active'
-        });
-      }
-    }
+    referralData.referrals = referrals ? Object.values(referrals).map(r => ({
+      username: r.referredUsername,
+      status: r.status,
+      depositAmount: r.depositAmount || 0,
+      commissionEarned: r.commissionEarned || 0,
+      joined: r.timestamp
+    })) : [];
     
     updateReferralUI();
   } catch (error) {
@@ -370,15 +330,15 @@ function updateReferralUI() {
   const tbody = document.getElementById('referralsBody');
   if (tbody) {
     if (referralData.referrals.length === 0) {
-      tbody.innerHTML = '}<td colspan="5" style="text-align:center;">No referrals yet</td><\/tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No referrals yet</td></tr>';
     } else {
-      tbody.innerHTML = referralData.referrals.map(ref => `
+      tbody.innerHTML = referralData.referrals.map(r => `
         <tr>
-          <td>${escapeHtml(ref.username)}</td>
-          <td>${ref.isActive ? '✅ Active' : '⏳ Pending'}</td>
-          <td class="positive">${formatNumber(ref.depositAmount)}</td>
-          <td class="positive">${formatNumber(ref.commissionEarned)}</td>
-          <td>${new Date(ref.joined).toLocaleDateString()}</td>
+          <td>${escapeHtml(r.username)}</td>
+          <td><span class="status-badge ${r.status === 'active' ? 'approved' : 'pending'}">${r.status === 'active' ? 'Active' : 'Pending'}</span></td>
+          <td class="amount-positive">${formatNumber(r.depositAmount)}</td>
+          <td class="amount-positive">${formatNumber(r.commissionEarned)}</td>
+          <td>${new Date(r.joined).toLocaleDateString()}</td>
         </tr>
       `).join('');
     }
@@ -397,6 +357,846 @@ function copyReferralLink() {
     navigator.clipboard.writeText(referralData.link);
     showPopup('Copied!', 'Referral link copied to clipboard');
   }
+}
+
+function filterReferrals(filter) {
+  const tbody = document.getElementById('referralsBody');
+  if (!tbody) return;
+  let filtered = referralData.referrals;
+  if (filter === 'active') filtered = referralData.referrals.filter(r => r.status === 'active');
+  if (filter === 'pending') filtered = referralData.referrals.filter(r => r.status !== 'active');
+  
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No referrals found</td></tr>';
+  } else {
+    tbody.innerHTML = filtered.map(r => `
+      <tr>
+        <td>${escapeHtml(r.username)}</td>
+        <td><span class="status-badge ${r.status === 'active' ? 'approved' : 'pending'}">${r.status === 'active' ? 'Active' : 'Pending'}</span></td>
+        <td class="amount-positive">${formatNumber(r.depositAmount)}</td>
+        <td class="amount-positive">${formatNumber(r.commissionEarned)}</td>
+        <td>${new Date(r.joined).toLocaleDateString()}</td>
+      </tr>
+    `).join('');
+  }
+  document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+  if (event && event.target) event.target.classList.add('active');
+}
+
+function claimMilestone(milestone) {
+  if (!currentUser || currentUser.isGuest) {
+    showPopup('Error', 'Please login to claim rewards');
+    return;
+  }
+  if (referralData.totalReferrals >= milestone && !referralData.milestones[milestone]) {
+    const reward = REFERRAL_CONFIG.MILESTONE_REWARDS[milestone];
+    gameState.balance += reward;
+    updateUI();
+    updateUserDataInFirebase(currentUser.id, { coins: gameState.balance, referralEarnings: (referralData.totalEarnings + reward) });
+    referralData.totalEarnings += reward;
+    referralData.milestones[milestone] = true;
+    updateReferralUI();
+    showPopup('Milestone Claimed!', `You earned ${reward} coins for reaching ${milestone} referrals! 🎉`);
+  } else if (referralData.milestones[milestone]) {
+    showPopup('Already Claimed', 'You have already claimed this milestone reward');
+  } else {
+    showPopup('Not Yet', `You need ${milestone} referrals to unlock this milestone`);
+  }
+}
+
+// ===== SHOP FUNCTIONS =====
+function purchaseCoins(amount, coins) {
+  if (!currentUser || currentUser.isGuest) {
+    showPopup('Login Required', 'Please login to purchase');
+    return;
+  }
+  
+  const bonusRate = REFERRAL_CONFIG.DEPOSIT_BONUS_RATE;
+  const bonusCoins = Math.floor(coins * bonusRate);
+  const totalCoins = coins + bonusCoins;
+  
+  gameState.balance += totalCoins;
+  updateUI();
+  
+  database.ref('transactions').push().set({
+    userId: currentUser.id,
+    username: currentUser.username,
+    amount: amount,
+    coins: coins,
+    bonusCoins: bonusCoins,
+    totalCoins: totalCoins,
+    type: 'purchase',
+    timestamp: new Date().toISOString()
+  });
+  
+  updateUserDataInFirebase(currentUser.id, { coins: gameState.balance });
+  showPopup('Purchase Successful!', `+${formatNumber(totalCoins)} coins (Including 2.5% bonus: +${formatNumber(bonusCoins)})`);
+  
+  if (totalCoins >= REFERRAL_CONFIG.MIN_DEPOSIT_FOR_COMMISSION) {
+    checkAndPayReferralCommission(currentUser.id, totalCoins);
+  }
+  
+  closeShop();
+  if (audio) audio.playClick();
+}
+
+function renderShopGrid() {
+  const shopGrid = document.getElementById('shopGrid');
+  if (!shopGrid) return;
+  const bonusRate = REFERRAL_CONFIG.DEPOSIT_BONUS_RATE * 100;
+  const shopItems = [
+    { amount: 100, coins: 100 },
+    { amount: 500, coins: 500 },
+    { amount: 1000, coins: 1000 },
+    { amount: 3000, coins: 3000, featured: true },
+    { amount: 5000, coins: 5000 },
+    { amount: 10000, coins: 10000 }
+  ];
+  
+  shopGrid.innerHTML = shopItems.map(item => `
+    <div class="shop-card ${item.featured ? 'featured' : ''}" onclick="purchaseCoins(${item.amount}, ${item.coins})">
+      <div class="shop-icon">💰</div>
+      <div class="shop-amount">₨${item.amount}</div>
+      <div class="shop-coins">${formatNumber(item.coins)} Coins</div>
+      <div class="shop-bonus">+${formatNumber(Math.floor(item.coins * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE))} Bonus (${bonusRate}%)</div>
+      <div class="shop-total">Total: ${formatNumber(item.coins + Math.floor(item.coins * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE))} Coins</div>
+      <button class="shop-btn">BUY NOW</button>
+    </div>
+  `).join('');
+  
+  const paymentGrid = document.getElementById('paymentMethodsGrid');
+  if (paymentGrid) {
+    paymentGrid.innerHTML = `
+      <div class="payment-card" onclick="showPopup('Payment', 'JazzCash payment coming soon')"><div class="payment-icon">📱</div><div class="payment-name">JazzCash</div><div class="payment-desc">Instant top-up with ${bonusRate}% bonus</div></div>
+      <div class="payment-card" onclick="showPopup('Payment', 'Easypaisa payment coming soon')"><div class="payment-icon">💳</div><div class="payment-name">Easypaisa</div><div class="payment-desc">Quick deposit with ${bonusRate}% bonus</div></div>
+      <div class="payment-card" onclick="showPopup('Payment', 'Bank transfer coming soon')"><div class="payment-icon">🏦</div><div class="payment-name">Bank Transfer</div><div class="payment-desc">Direct transfer with ${bonusRate}% bonus</div></div>
+    `;
+  }
+}
+
+function openShop() {
+  renderShopGrid();
+  const shopSection = document.getElementById('shopSection');
+  if (shopSection) shopSection.classList.add('active');
+  if (audio) audio.playClick();
+}
+
+function closeShop() {
+  const shopSection = document.getElementById('shopSection');
+  if (shopSection) shopSection.classList.remove('active');
+  if (audio) audio.playClick();
+}
+
+// ===== WITHDRAW FUNCTIONS =====
+async function saveWithdrawalAccounts() {
+  if (!currentUser || currentUser.isGuest) {
+    showPopup('Error', 'Please login to save accounts');
+    return;
+  }
+  
+  const jazzcash = document.getElementById('jazzcashNumber')?.value.trim();
+  const easypaisa = document.getElementById('easypaisaNumber')?.value.trim();
+  const bank = document.getElementById('bankAccount')?.value.trim();
+  
+  const accounts = {};
+  if (jazzcash) accounts.jazzcash = jazzcash;
+  if (easypaisa) accounts.easypaisa = easypaisa;
+  if (bank) accounts.bank = bank;
+  
+  if (Object.keys(accounts).length === 0) {
+    showPopup('Error', 'Please enter at least one withdrawal account');
+    return;
+  }
+  
+  await updateUserDataInFirebase(currentUser.id, { withdrawalAccounts: accounts });
+  savedAccounts = accounts;
+  showPopup('Success', 'Withdrawal accounts saved successfully');
+}
+
+async function loadWithdrawalAccounts() {
+  if (!currentUser || currentUser.isGuest) return;
+  const userData = await getUserDataFromFirebase(currentUser.id);
+  if (userData && userData.withdrawalAccounts) {
+    savedAccounts = userData.withdrawalAccounts;
+    const jazzcashInput = document.getElementById('jazzcashNumber');
+    const easypaisaInput = document.getElementById('easypaisaNumber');
+    const bankInput = document.getElementById('bankAccount');
+    if (jazzcashInput) jazzcashInput.value = savedAccounts.jazzcash || '';
+    if (easypaisaInput) easypaisaInput.value = savedAccounts.easypaisa || '';
+    if (bankInput) bankInput.value = savedAccounts.bank || '';
+  }
+}
+
+function updateWithdrawPopup() {
+  const method = document.getElementById('withdrawMethod')?.value;
+  const accountDisplay = document.getElementById('accountDisplay');
+  if (method && accountDisplay) {
+    if (savedAccounts[method]) {
+      accountDisplay.innerHTML = `Account: ${savedAccounts[method]}`;
+      accountDisplay.style.color = '#10b981';
+    } else {
+      accountDisplay.innerHTML = 'No account saved. Please add in profile.';
+      accountDisplay.style.color = '#ff6b6b';
+    }
+  }
+}
+
+function openWithdraw() {
+  if (!currentUser || currentUser.isGuest) {
+    showPopup('Login Required', 'Please login to withdraw');
+    openAuthModal('login');
+    return;
+  }
+  const withdrawBalance = document.getElementById('withdrawBalance');
+  if (withdrawBalance) withdrawBalance.textContent = formatNumber(gameState.balance);
+  const withdrawPopup = document.getElementById('withdrawPopup');
+  if (withdrawPopup) withdrawPopup.classList.add('active');
+  updateWithdrawPopup();
+  if (audio) audio.playClick();
+}
+
+function closeWithdrawPopup() {
+  const withdrawPopup = document.getElementById('withdrawPopup');
+  if (withdrawPopup) withdrawPopup.classList.remove('active');
+  const withdrawAmount = document.getElementById('withdrawAmount');
+  if (withdrawAmount) withdrawAmount.value = '';
+}
+
+function processWithdraw() {
+  const amount = parseInt(document.getElementById('withdrawAmount')?.value);
+  const method = document.getElementById('withdrawMethod')?.value;
+  
+  if (!amount || amount < 1000) {
+    showPopup('Error', 'Minimum withdrawal amount is 1000 coins');
+    return;
+  }
+  if (amount > gameState.balance) {
+    showPopup('Error', 'Insufficient balance');
+    return;
+  }
+  if (!savedAccounts[method]) {
+    showPopup('Error', 'Please save your account number in profile first');
+    openProfile();
+    return;
+  }
+  
+  // Create withdrawal request
+  const withdrawRef = database.ref('withdrawals').push();
+  withdrawRef.set({
+    userId: currentUser.id,
+    username: currentUser.username,
+    amount: amount,
+    method: method,
+    accountNumber: savedAccounts[method],
+    status: 'pending',
+    timestamp: new Date().toISOString()
+  });
+  
+  showPopup('Withdrawal Request', `Your withdrawal request for ${formatNumber(amount)} coins has been submitted. Admin will process it shortly.`);
+  closeWithdrawPopup();
+}
+
+// ===== NOTIFICATION FUNCTIONS =====
+function loadNotifications() {
+  if (!currentUser || currentUser.isGuest) return;
+  database.ref('notifications/' + currentUser.id).on('value', snapshot => {
+    const notifs = snapshot.val();
+    if (notifs) {
+      notifications = Object.entries(notifs).map(([id, n]) => ({ ...n, id })).reverse();
+      updateNotificationBadge();
+      renderNotifications();
+    }
+  });
+}
+
+function updateNotificationBadge() {
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const badge = document.getElementById('notificationBadge');
+  const badgeSmall = document.getElementById('notificationBadgeSmall');
+  if (unreadCount > 0) {
+    if (badge) { badge.style.display = 'block'; badge.textContent = unreadCount > 9 ? '9+' : unreadCount; }
+    if (badgeSmall) { badgeSmall.style.display = 'inline-block'; badgeSmall.textContent = unreadCount > 9 ? '9+' : unreadCount; }
+  } else {
+    if (badge) badge.style.display = 'none';
+    if (badgeSmall) badgeSmall.style.display = 'none';
+  }
+}
+
+function renderNotifications() {
+  const container = document.getElementById('notificationList');
+  if (!container) return;
+  if (notifications.length === 0) {
+    container.innerHTML = '<div class="notification-item"><div class="notification-icon">📭</div><div class="notification-content"><div class="notification-title">No Notifications</div><div class="notification-message">You have no new notifications</div></div></div>';
+    return;
+  }
+  container.innerHTML = notifications.map(n => `
+    <div class="notification-item ${!n.read ? 'unread' : ''}" onclick="markNotificationRead('${n.id}')">
+      <div class="notification-icon">${n.icon || '📢'}</div>
+      <div class="notification-content">
+        <div class="notification-title">${n.title}</div>
+        <div class="notification-message">${n.message}</div>
+        <div class="notification-time">${new Date(n.timestamp).toLocaleTimeString()}</div>
+      </div>
+      <button class="delete-notification" onclick="event.stopPropagation(); deleteNotification('${n.id}')">×</button>
+    </div>
+  `).join('');
+}
+
+function openNotificationPanel() {
+  const panel = document.getElementById('notificationPanel');
+  if (panel) panel.classList.add('open');
+  markAllNotificationsRead();
+  if (audio) audio.playClick();
+}
+
+function closeNotificationPanel() {
+  const panel = document.getElementById('notificationPanel');
+  if (panel) panel.classList.remove('open');
+}
+
+function deleteNotification(notificationId) {
+  if (!currentUser || currentUser.isGuest) return;
+  database.ref('notifications/' + currentUser.id + '/' + notificationId).remove();
+  showPopup('Deleted', 'Notification removed');
+}
+
+function deleteAllNotifications() {
+  if (!currentUser || currentUser.isGuest) return;
+  if (confirm('Delete all notifications?')) {
+    database.ref('notifications/' + currentUser.id).remove();
+    showPopup('All Deleted', 'All notifications removed');
+  }
+}
+
+function markNotificationRead(notificationId) {
+  if (!currentUser || currentUser.isGuest) return;
+  database.ref('notifications/' + currentUser.id + '/' + notificationId).update({ read: true });
+}
+
+function markAllNotificationsRead() {
+  if (!currentUser || currentUser.isGuest) return;
+  notifications.forEach(n => {
+    if (!n.read) {
+      database.ref('notifications/' + currentUser.id + '/' + n.id).update({ read: true });
+    }
+  });
+}
+
+// ===== SUPPORT FUNCTIONS =====
+function sendSupportMessage() {
+  const message = document.getElementById('supportMessage')?.value.trim();
+  if (!message) {
+    showPopup('Error', 'Please enter a message');
+    return;
+  }
+  if (!currentUser || currentUser.isGuest) {
+    showPopup('Error', 'Please login to send support messages');
+    openAuthModal('login');
+    return;
+  }
+  
+  database.ref('support-tickets').push().set({
+    userId: currentUser.id,
+    username: currentUser.username,
+    message: message,
+    replies: [],
+    status: 'pending',
+    timestamp: new Date().toISOString()
+  });
+  
+  const supportMessage = document.getElementById('supportMessage');
+  if (supportMessage) supportMessage.value = '';
+  showPopup('Message Sent', 'Your support message has been sent to admin');
+  loadSupportTickets();
+}
+
+function loadSupportTickets() {
+  if (!currentUser || currentUser.isGuest) return;
+  const container = document.getElementById('ticketList');
+  if (!container) return;
+  
+  database.ref('support-tickets').orderByChild('userId').equalTo(currentUser.id).on('value', snapshot => {
+    const tickets = snapshot.val();
+    if (!tickets) {
+      container.innerHTML = '<div class="ticket-item"><div class="ticket-message">No messages yet</div></div>';
+      return;
+    }
+    const ticketsArray = Object.values(tickets).reverse();
+    container.innerHTML = ticketsArray.map(ticket => `
+      <div class="ticket-item">
+        <div class="ticket-message">${escapeHtml(ticket.message)}</div>
+        <div class="ticket-time">${new Date(ticket.timestamp).toLocaleString()}</div>
+        ${ticket.replies && ticket.replies.length > 0 ? `<div class="ticket-reply"><strong>Admin Reply:</strong><br>${ticket.replies.map(r => `<div>${escapeHtml(r.message)} - ${new Date(r.timestamp).toLocaleTimeString()}</div>`).join('')}</div>` : ''}
+      </div>
+    `).join('');
+  });
+}
+
+function openAdditionalSupport() {
+  const section = document.getElementById('additionalSupportSection');
+  if (section) section.classList.add('active');
+  loadSupportTickets();
+  if (audio) audio.playClick();
+}
+
+function closeAdditionalSupport() {
+  const section = document.getElementById('additionalSupportSection');
+  if (section) section.classList.remove('active');
+}
+
+function openSupportBot() {
+  window.open('https://bots.easy-peasy.ai/bot/74d4a40f-b3ee-4e22-9ae0-bbb8f2b9fdd5', '_blank');
+  if (audio) audio.playClick();
+}
+
+// ===== UI FUNCTIONS =====
+function updateUI() {
+  const balanceDisplay = document.getElementById('balanceDisplay');
+  const lobbyBalance = document.getElementById('lobbyBalance');
+  const currentWin = document.getElementById('currentWin');
+  const multiplier = document.getElementById('multiplier');
+  const pairsDisplay = document.getElementById('pairsDisplay');
+  const pairsMatched = document.getElementById('pairsMatched');
+  const progressFill = document.getElementById('progressFill');
+  
+  if (balanceDisplay) balanceDisplay.textContent = formatNumber(gameState.balance);
+  if (lobbyBalance) lobbyBalance.textContent = formatNumber(gameState.balance);
+  if (currentWin) currentWin.textContent = formatNumber(gameState.currentWin);
+  if (multiplier) multiplier.textContent = gameState.multiplier.toFixed(2) + 'x';
+  if (pairsDisplay) pairsDisplay.textContent = `${gameState.pairsMatched}/${CONFIG.PAIRS_COUNT}`;
+  if (pairsMatched) pairsMatched.textContent = `${gameState.pairsMatched}/${CONFIG.PAIRS_COUNT}`;
+  if (progressFill) progressFill.style.width = (gameState.pairsMatched / CONFIG.PAIRS_COUNT * 100) + '%';
+}
+
+function updateHeaderForUser() {
+  const headerUsername = document.getElementById('headerUsername');
+  const headerAvatar = document.getElementById('headerAvatarIcon');
+  const userStatus = document.getElementById('userStatus');
+  
+  if (currentUser) {
+    if (headerUsername) headerUsername.textContent = currentUser.username;
+    if (headerAvatar) headerAvatar.textContent = currentUser.avatar || '👤';
+    if (userStatus) userStatus.textContent = currentUser.isGuest ? 'Guest Mode' : 'Verified Player';
+  } else {
+    if (headerUsername) headerUsername.textContent = 'Guest';
+    if (headerAvatar) headerAvatar.textContent = '👤';
+    if (userStatus) userStatus.textContent = 'Tap to login';
+  }
+}
+
+function hideAuthButtons() {
+  const authButtons = document.getElementById('authButtons');
+  if (authButtons) authButtons.style.display = 'none';
+}
+
+function showAuthButtons() {
+  const authButtons = document.getElementById('authButtons');
+  if (authButtons) authButtons.style.display = 'flex';
+}
+
+function openAuthModal(tab) {
+  const overlay = document.getElementById('authOverlay');
+  if (overlay) overlay.classList.add('active');
+  switchAuthTab(tab);
+  if (audio) audio.playClick();
+}
+
+function switchAuthTab(tab) {
+  const authTitle = document.getElementById('authTitle');
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  
+  if (authTitle) authTitle.textContent = tab === 'login' ? 'Login' : 'Register';
+  if (loginForm) loginForm.classList.toggle('active', tab === 'login');
+  if (registerForm) registerForm.classList.toggle('active', tab === 'register');
+  if (audio) audio.playClick();
+}
+
+function closeAuth() {
+  const overlay = document.getElementById('authOverlay');
+  if (overlay) overlay.classList.remove('active');
+  if (audio) audio.playClick();
+}
+
+function guestLogin() {
+  currentUser = {
+    username: 'Guest_' + Math.floor(Math.random() * 9999),
+    avatar: '👤',
+    isGuest: true,
+    id: 'GUEST' + Math.floor(Math.random() * 999),
+    totalBets: 0,
+    totalWins: 0
+  };
+  gameState.balance = 0;
+  closeAuth();
+  updateHeaderForUser();
+  updateUI();
+  hideAuthButtons();
+  showPopup('Guest Mode', 'You are playing as guest with 0 coins');
+  if (audio) audio.playClick();
+}
+
+function openProfile() {
+  if (!currentUser) {
+    openAuthModal('login');
+    return;
+  }
+  const profileModal = document.getElementById('profileModal');
+  if (profileModal) profileModal.classList.add('active');
+  
+  const profileNameDisplay = document.getElementById('profileNameDisplay');
+  const profileIdDisplay = document.getElementById('profileIdDisplay');
+  const currentAvatarDisplay = document.getElementById('currentAvatarDisplay');
+  const profileCoins = document.getElementById('profileCoins');
+  const profileBets = document.getElementById('profileBets');
+  const profileWins = document.getElementById('profileWins');
+  const editUsernameBtn = document.getElementById('editUsernameBtn');
+  
+  if (profileNameDisplay) profileNameDisplay.textContent = currentUser.username;
+  if (profileIdDisplay) profileIdDisplay.textContent = 'ID: ' + currentUser.id;
+  if (currentAvatarDisplay) currentAvatarDisplay.textContent = currentUser.avatar || '👤';
+  if (profileCoins) profileCoins.textContent = formatNumber(gameState.balance);
+  if (profileBets) profileBets.textContent = gameState.totalBets || 0;
+  if (profileWins) profileWins.textContent = gameState.totalWins || 0;
+  if (editUsernameBtn) editUsernameBtn.style.display = currentUser.isGuest ? 'none' : 'block';
+  
+  loadWithdrawalAccounts();
+  if (audio) audio.playClick();
+}
+
+function closeProfile() {
+  const profileModal = document.getElementById('profileModal');
+  if (profileModal) profileModal.classList.remove('active');
+  cancelEdit();
+}
+
+function showEditUsername() {
+  const editSection = document.getElementById('editUsernameSection');
+  const editBtn = document.getElementById('editUsernameBtn');
+  if (editSection) editSection.style.display = 'block';
+  if (editBtn) editBtn.style.display = 'none';
+}
+
+function cancelEdit() {
+  const editSection = document.getElementById('editUsernameSection');
+  const editBtn = document.getElementById('editUsernameBtn');
+  if (editSection) editSection.style.display = 'none';
+  if (editBtn) editBtn.style.display = 'block';
+}
+
+async function updateUsername() {
+  const newUsername = document.getElementById('newUsername')?.value.trim();
+  if (!newUsername) {
+    showPopup('Error', 'Please enter a username');
+    return;
+  }
+  if (currentUser.isGuest) {
+    showPopup('Error', 'Guests cannot change username');
+    return;
+  }
+  currentUser.username = newUsername;
+  await updateUserDataInFirebase(currentUser.id, { username: newUsername });
+  updateHeaderForUser();
+  closeProfile();
+  showPopup('Success', 'Username updated');
+}
+
+function changeAvatar() {
+  if (currentUser.isGuest) {
+    showPopup('Error', 'Guests cannot change avatar');
+    return;
+  }
+  const avatarPopup = document.getElementById('avatarPopup');
+  if (avatarPopup) avatarPopup.classList.add('active');
+}
+
+async function selectAvatar(avatar) {
+  if (currentUser.isGuest) return;
+  currentUser.avatar = avatar;
+  const currentAvatarDisplay = document.getElementById('currentAvatarDisplay');
+  const headerAvatarIcon = document.getElementById('headerAvatarIcon');
+  if (currentAvatarDisplay) currentAvatarDisplay.textContent = avatar;
+  if (headerAvatarIcon) headerAvatarIcon.textContent = avatar;
+  await updateUserDataInFirebase(currentUser.id, { avatar: avatar });
+  closeAvatarPopup();
+  showPopup('Success', 'Avatar updated');
+}
+
+function closeAvatarPopup() {
+  const avatarPopup = document.getElementById('avatarPopup');
+  if (avatarPopup) avatarPopup.classList.remove('active');
+}
+
+async function logout() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  if (currentUser && !currentUser.isGuest) {
+    await auth.signOut();
+  }
+  currentUser = null;
+  closeProfile();
+  stopAutoRefresh();
+  updateHeaderForUser();
+  gameState.balance = 0;
+  updateUI();
+  showAuthButtons();
+  openAuthModal('login');
+  showPopup('Logged out', 'You have been logged out');
+}
+
+// ===== AUTO-REFRESH =====
+function startAutoRefresh() {
+  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+  autoRefreshInterval = setInterval(() => refreshUserData(true), 5000);
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshInterval) {
+    clearInterval(autoRefreshInterval);
+    autoRefreshInterval = null;
+  }
+}
+
+async function refreshUserData(silent = false) {
+  if (!currentUser || currentUser.isGuest) return;
+  try {
+    const userData = await getUserDataFromFirebase(currentUser.id);
+    if (userData) {
+      const oldBalance = gameState.balance;
+      const newBalance = userData.coins || 0;
+      if (!gameState.isPlaying || Math.abs(newBalance - oldBalance) < 1000) {
+        gameState.balance = newBalance;
+      }
+      gameState.totalBets = userData.totalBets || 0;
+      gameState.totalWins = userData.totalWins || 0;
+      updateUI();
+    }
+  } catch (error) {
+    if (!silent) console.error("Refresh error:", error);
+  }
+}
+
+// ===== AUTH FUNCTIONS =====
+async function handleLoginSubmit(form) {
+  const email = form.email.value.trim();
+  const password = form.password.value.trim();
+  const errorContainer = document.getElementById('loginErrors');
+  
+  if (errorContainer) {
+    errorContainer.classList.remove('active');
+    errorContainer.innerHTML = '';
+  }
+  if (!email || !password) {
+    if (errorContainer) {
+      errorContainer.innerHTML = 'Please fill in all fields';
+      errorContainer.classList.add('active');
+    }
+    return;
+  }
+  
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Logging in...';
+  submitBtn.disabled = true;
+  
+  try {
+    const userCred = await auth.signInWithEmailAndPassword(email, password);
+    const userData = await getUserDataFromFirebase(userCred.user.uid);
+    if (userData) {
+      currentUser = {
+        username: userData.username,
+        avatar: userData.avatar || '👤',
+        isGuest: false,
+        id: userCred.user.uid,
+        totalBets: userData.totalBets || 0,
+        totalWins: userData.totalWins || 0,
+        referredBy: userData.referredBy || null
+      };
+      gameState.balance = userData.coins || 0;
+      gameState.totalBets = userData.totalBets || 0;
+      gameState.totalWins = userData.totalWins || 0;
+      updateHeaderForUser();
+      updateUI();
+      hideAuthButtons();
+      closeAuth();
+      startAutoRefresh();
+      loadNotifications();
+      loadSupportTickets();
+      loadReferralData();
+      loadWithdrawalAccounts();
+      showPopup('Welcome back!', `Logged in as ${currentUser.username}`);
+    }
+  } catch (error) {
+    if (errorContainer) {
+      errorContainer.innerHTML = 'Invalid email or password';
+      errorContainer.classList.add('active');
+    }
+  } finally {
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
+}
+
+async function handleRegisterSubmit(form) {
+  const username = form.username.value.trim();
+  const email = form.email.value.trim();
+  const password = form.password.value.trim();
+  const confirmPassword = form.confirmPassword.value.trim();
+  const manualCode = form.referralCode?.value.trim() || '';
+  const urlCode = getReferralCodeFromURL();
+  const referralCode = urlCode || manualCode;
+  const errorContainer = document.getElementById('registerErrors');
+  
+  if (errorContainer) {
+    errorContainer.classList.remove('active');
+    errorContainer.innerHTML = '';
+  }
+  
+  if (!username || !email || !password || !confirmPassword) {
+    if (errorContainer) {
+      errorContainer.innerHTML = 'Please fill all fields';
+      errorContainer.classList.add('active');
+    }
+    return;
+  }
+  if (password !== confirmPassword) {
+    if (errorContainer) {
+      errorContainer.innerHTML = 'Passwords do not match';
+      errorContainer.classList.add('active');
+    }
+    return;
+  }
+  if (password.length < 6) {
+    if (errorContainer) {
+      errorContainer.innerHTML = 'Password must be 6+ characters';
+      errorContainer.classList.add('active');
+    }
+    return;
+  }
+  
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+  submitBtn.textContent = 'Creating account...';
+  submitBtn.disabled = true;
+  
+  try {
+    const userCred = await auth.createUserWithEmailAndPassword(email, password);
+    const userData = {
+      username: username,
+      avatar: '👤',
+      email: email,
+      coins: 0,
+      totalBets: 0,
+      totalWins: 0,
+      createdAt: new Date().toISOString(),
+      referredBy: null,
+      referralCode: null,
+      referralCount: 0,
+      referralEarnings: 0,
+      activeReferrals: 0,
+      referralMilestones: { 5: false, 10: false, 25: false, 50: false }
+    };
+    
+    await database.ref('users/' + userCred.user.uid).set(userData);
+    await createReferralCode(userCred.user.uid, username);
+    
+    if (referralCode) {
+      await applyReferral(referralCode, userCred.user.uid, username);
+    }
+    
+    currentUser = {
+      username: username,
+      avatar: '👤',
+      isGuest: false,
+      id: userCred.user.uid,
+      totalBets: 0,
+      totalWins: 0,
+      referredBy: null
+    };
+    
+    gameState.balance = 0;
+    updateHeaderForUser();
+    updateUI();
+    hideAuthButtons();
+    closeAuth();
+    startAutoRefresh();
+    loadNotifications();
+    loadSupportTickets();
+    loadReferralData();
+    loadWithdrawalAccounts();
+    
+    if (referralCode) {
+      showPopup('Welcome!', `Account created with referral! Deposit ${REFERRAL_CONFIG.MIN_DEPOSIT_FOR_COMMISSION}+ coins to earn commission for your referrer!`);
+    } else {
+      showPopup('Welcome!', `Account created, ${username}! Get 2.5% bonus on every deposit!`);
+    }
+  } catch (error) {
+    if (errorContainer) {
+      errorContainer.innerHTML = error.code === 'auth/email-already-in-use' ? 'Email already exists' : 'Registration failed';
+      errorContainer.classList.add('active');
+    }
+  } finally {
+    submitBtn.textContent = originalText;
+    submitBtn.disabled = false;
+  }
+}
+
+// ===== GAME FUNCTIONS =====
+function enterGame() {
+  const loader = document.getElementById('gameEntryLoader');
+  const gameView = document.getElementById('gameView');
+  if (loader) loader.classList.add('active');
+  if (audio) audio.playClick();
+  
+  setTimeout(() => {
+    if (loader) loader.classList.remove('active');
+    if (gameView) gameView.classList.add('active');
+    isInGame = true;
+    const betPanel = document.getElementById('betPanel');
+    const startBtn = document.getElementById('startBtn');
+    const messageText = document.getElementById('messageText');
+    if (betPanel) betPanel.style.display = 'block';
+    if (startBtn) startBtn.classList.remove('hidden');
+    if (messageText) messageText.textContent = currentUser ? 'Select your bet' : 'Login to play';
+  }, 2000);
+}
+
+function exitGame() {
+  const gameView = document.getElementById('gameView');
+  if (gameView) gameView.classList.remove('active');
+  isInGame = false;
+  if (audio) audio.playClick();
+}
+
+function setActiveNav(element) {
+  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+  element.classList.add('active');
+}
+
+function getRandomChampions() {
+  const shuffled = [...pakistaniNames].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, 7).map((name, index) => ({
+    name: name,
+    win: Math.floor(Math.random() * 90000 + 10000),
+    rank: index + 1,
+    avatar: championAvatars[index % championAvatars.length]
+  }));
+}
+
+function renderLeaderboard() {
+  const list = document.getElementById('leaderboardList');
+  if (!list) return;
+  const champions = getRandomChampions();
+  list.innerHTML = champions.map((c, i) => {
+    let rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+    return `<div class="leaderboard-item"><div class="rank-number ${rankClass}">${c.rank}</div><div class="leader-avatar">${c.avatar}</div><div class="leader-info"><div class="leader-name">${c.name}</div><div class="leader-win">${formatNumber(c.win)} won</div></div></div>`;
+  }).join('');
+}
+
+let leaderboardInterval;
+function startLeaderboardRotation() {
+  renderLeaderboard();
+  if (leaderboardInterval) clearInterval(leaderboardInterval);
+  leaderboardInterval = setInterval(renderLeaderboard, 5000);
 }
 
 // ===== GAME CORE FUNCTIONS =====
@@ -430,50 +1230,18 @@ function createCardElement(card, index) {
   cardEl.dataset.value = card.value;
   cardEl.dataset.isBomb = card.isBomb;
   cardEl.dataset.isGolden = card.isGolden;
-
-  const backHTML = `
-    <div class="card-face card-back">
-      <div class="card-back-pattern"></div>
-      <span class="card-back-logo">RM</span>
-    </div>
-  `;
-
+  
+  const backHTML = `<div class="card-face card-back"><div class="card-back-pattern"></div><span class="card-back-logo">RM</span></div>`;
+  
   let frontHTML = '';
-
   if (card.isBomb) {
-    frontHTML = `
-      <div class="card-face card-front bomb">
-        <div class="bomb-content">
-          <span class="bomb-icon">💣</span>
-          <span class="bomb-text">BOOM!</span>
-        </div>
-      </div>
-    `;
+    frontHTML = `<div class="card-face card-front bomb"><div class="bomb-content"><span class="bomb-icon">💣</span><span class="bomb-text">BOOM!</span></div></div>`;
   } else if (card.isGolden) {
-    frontHTML = `
-      <div class="card-face card-front golden">
-        <div class="golden-content">
-          <span class="golden-icon">👑</span>
-          <span class="golden-text">${CONFIG.GOLDEN_MULTIPLIER}X WIN!</span>
-        </div>
-      </div>
-    `;
+    frontHTML = `<div class="card-face card-front golden"><div class="golden-content"><span class="golden-icon">👑</span><span class="golden-text">20X WIN!</span></div></div>`;
   } else {
-    frontHTML = `
-      <div class="card-face card-front ${card.suit.color}">
-        <div class="card-corner card-corner-tl">
-          <span class="card-rank">${card.value}</span>
-          <span class="card-suit-small">${card.suit.symbol}</span>
-        </div>
-        <span class="card-center">${card.suit.symbol}</span>
-        <div class="card-corner card-corner-br">
-          <span class="card-rank">${card.value}</span>
-          <span class="card-suit-small">${card.suit.symbol}</span>
-        </div>
-      </div>
-    `;
+    frontHTML = `<div class="card-face card-front ${card.suit.color}"><div class="card-corner card-corner-tl"><span class="card-rank">${card.value}</span><span class="card-suit-small">${card.suit.symbol}</span></div><span class="card-center">${card.suit.symbol}</span><div class="card-corner card-corner-br"><span class="card-rank">${card.value}</span><span class="card-suit-small">${card.suit.symbol}</span></div></div>`;
   }
-
+  
   cardEl.innerHTML = backHTML + frontHTML;
   cardEl.addEventListener('click', () => handleCardClick(cardEl));
   return cardEl;
@@ -490,7 +1258,6 @@ async function animateShuffle() {
   const cardGrid = document.getElementById('cardGrid');
   const cards = cardGrid?.querySelectorAll('.card');
   if (!cards) return;
-  
   for (let round = 0; round < 5; round++) {
     cardGrid.classList.add('shuffling');
     if (audio) audio.playShuffle();
@@ -499,24 +1266,6 @@ async function animateShuffle() {
   }
   cardGrid.classList.remove('shuffling');
   cards.forEach((c, i) => c.style.order = i);
-}
-
-function updateGameUI() {
-  const balanceDisplay = document.getElementById('balanceDisplay');
-  const lobbyBalance = document.getElementById('lobbyBalance');
-  const currentWin = document.getElementById('currentWin');
-  const multiplier = document.getElementById('multiplier');
-  const pairsDisplay = document.getElementById('pairsDisplay');
-  const pairsMatched = document.getElementById('pairsMatched');
-  const progressFill = document.getElementById('progressFill');
-  
-  if (balanceDisplay) balanceDisplay.textContent = formatNumber(gameState.balance);
-  if (lobbyBalance) lobbyBalance.textContent = formatNumber(gameState.balance);
-  if (currentWin) currentWin.textContent = formatNumber(gameState.currentWin);
-  if (multiplier) multiplier.textContent = gameState.multiplier.toFixed(2) + 'x';
-  if (pairsDisplay) pairsDisplay.textContent = `${gameState.pairsMatched}/${CONFIG.PAIRS_COUNT}`;
-  if (pairsMatched) pairsMatched.textContent = `${gameState.pairsMatched}/${CONFIG.PAIRS_COUNT}`;
-  if (progressFill) progressFill.style.width = (gameState.pairsMatched / CONFIG.PAIRS_COUNT * 100) + '%';
 }
 
 function selectBet(amount) {
@@ -533,11 +1282,9 @@ function selectBet(amount) {
   }
   gameState.currentBet = amount;
   if (audio) audio.playClick();
-  
   document.querySelectorAll('.bet-option').forEach(btn => {
     btn.classList.toggle('selected', parseInt(btn.dataset.bet) === amount);
   });
-  
   const messageText = document.getElementById('messageText');
   if (messageText) messageText.textContent = `Bet: ${amount} coins`;
 }
@@ -549,24 +1296,21 @@ async function startGame() {
     openAuthModal('login');
     return;
   }
-
   if (gameState.currentBet <= 0) {
     const messageText = document.getElementById('messageText');
     if (messageText) messageText.textContent = 'Select bet';
     return;
   }
-
   if (gameState.balance < gameState.currentBet) {
     const messageText = document.getElementById('messageText');
     if (messageText) messageText.textContent = 'Insufficient balance';
     return;
   }
-
-  // Deduct bet
+  
   gameState.balance -= gameState.currentBet;
   await updateUserDataInFirebase(currentUser.id, { coins: gameState.balance });
-  updateGameUI();
-
+  updateUI();
+  
   gameState.currentWin = 0;
   gameState.multiplier = 1;
   gameState.pairsMatched = 0;
@@ -575,22 +1319,26 @@ async function startGame() {
   gameState.firstCard = null;
   gameState.secondCard = null;
   gameState.matchedCards.clear();
-
   gameState.cards = generateCards();
   renderCards();
-
+  
   const betPanel = document.getElementById('betPanel');
   const startBtn = document.getElementById('startBtn');
   const progressSection = document.getElementById('progressSection');
+  const multiplierDisplay = document.getElementById('multiplierDisplay');
   const messageText = document.getElementById('messageText');
   
   if (betPanel) betPanel.style.display = 'none';
   if (startBtn) startBtn.classList.add('hidden');
   if (progressSection) progressSection.classList.remove('hidden');
-  if (messageText) messageText.textContent = 'Shuffling...';
   
+  if (multiplierDisplay) {
+    multiplierDisplay.innerHTML = CONFIG.MULTIPLIERS.map((m, i) => `<span class="multiplier-item">${i + 1}:${m}x</span>`).join('');
+  }
+  
+  updateProgress();
+  if (messageText) messageText.textContent = 'Shuffling...';
   await animateShuffle();
-
   gameState.canFlip = true;
   if (messageText) messageText.textContent = 'Find matching pairs! Avoid bombs!';
   if (audio) audio.playClick();
@@ -598,18 +1346,18 @@ async function startGame() {
 
 function handleCardClick(el) {
   if (!gameState.canFlip || el.classList.contains('flipped') || el.classList.contains('matched')) return;
-
+  
   const isBomb = el.dataset.isBomb === 'true';
   const isGolden = el.dataset.isGolden === 'true';
-
+  
   el.classList.add('flipped');
   if (audio) audio.playCardFlip();
-
+  
   if (isBomb) {
     setTimeout(handleBomb, 400);
     return;
   }
-
+  
   if (!gameState.firstCard) {
     gameState.firstCard = el;
     if (isGolden) return;
@@ -623,48 +1371,50 @@ function handleCardClick(el) {
 function checkGoldenMatch() {
   const f = gameState.firstCard?.dataset.isGolden === 'true';
   const s = gameState.secondCard?.dataset.isGolden === 'true';
-
+  
   if (f && s) {
     gameState.firstCard.classList.add('matched');
     gameState.secondCard.classList.add('matched');
     gameState.currentWin = gameState.currentBet * CONFIG.GOLDEN_MULTIPLIER;
     gameState.multiplier = CONFIG.GOLDEN_MULTIPLIER;
     if (audio) audio.playWin();
-    updateGameUI();
-    
+    updateUI();
+    gameState.firstCard = null;
+    gameState.secondCard = null;
+    gameState.canFlip = true;
     const messageText = document.getElementById('messageText');
-    if (messageText) messageText.textContent = `GOLDEN MATCH! +${formatNumber(gameState.currentWin)}`;
+    if (messageText) messageText.textContent = `GOLDEN! +${formatNumber(gameState.currentWin)}`;
     showCashoutOption();
   } else {
     gameState.firstCard.classList.remove('flipped');
     gameState.secondCard.classList.remove('flipped');
+    gameState.firstCard = null;
+    gameState.secondCard = null;
+    gameState.canFlip = true;
     const messageText = document.getElementById('messageText');
     if (messageText) messageText.textContent = 'No match';
   }
-  
-  gameState.firstCard = null;
-  gameState.secondCard = null;
-  gameState.canFlip = true;
 }
 
 function checkMatch() {
   if (!gameState.firstCard || !gameState.secondCard) return;
-
+  
   const fv = gameState.firstCard.dataset.value;
   const sv = gameState.secondCard.dataset.value;
   const fid = gameState.firstCard.dataset.id;
   const sid = gameState.secondCard.dataset.id;
-
+  
   if (fv === sv && fid !== sid) {
     gameState.firstCard.classList.add('matched');
     gameState.secondCard.classList.add('matched');
     gameState.pairsMatched++;
     gameState.multiplier = CONFIG.MULTIPLIERS[gameState.pairsMatched - 1] || 1;
     gameState.currentWin = Math.floor(gameState.currentBet * gameState.multiplier);
-
+    
     if (audio) audio.playMatch();
-    updateGameUI();
-
+    updateUI();
+    updateProgress();
+    
     if (gameState.pairsMatched >= CONFIG.PAIRS_COUNT) {
       gameState.currentWin = gameState.currentBet * CONFIG.MULTIPLIERS[CONFIG.MULTIPLIERS.length - 1];
       setTimeout(handleMaxWin, 400);
@@ -673,18 +1423,20 @@ function checkMatch() {
       if (messageText) messageText.textContent = `MATCH! +${formatNumber(gameState.currentWin)} (${gameState.multiplier}x)`;
       showCashoutOption();
     }
+    gameState.firstCard = null;
+    gameState.secondCard = null;
+    gameState.canFlip = true;
   } else {
     setTimeout(() => {
       gameState.firstCard.classList.remove('flipped');
       gameState.secondCard.classList.remove('flipped');
+      gameState.firstCard = null;
+      gameState.secondCard = null;
+      gameState.canFlip = true;
       const messageText = document.getElementById('messageText');
       if (messageText) messageText.textContent = 'Try again';
     }, 400);
   }
-  
-  gameState.firstCard = null;
-  gameState.secondCard = null;
-  gameState.canFlip = true;
 }
 
 function showCashoutOption() {
@@ -702,14 +1454,13 @@ function cashout() {
   gameState.totalBets++;
   gameState.totalWins++;
   
-  updateUserDataInFirebase(currentUser.id, { 
+  updateUserDataInFirebase(currentUser.id, {
     coins: gameState.balance,
     totalBets: gameState.totalBets,
     totalWins: gameState.totalWins
   });
   
   saveGameToHistory(true, gameState.currentBet, gameState.currentWin, gameState.multiplier);
-  
   if (audio) audio.playCashout();
   
   const winAmountDisplay = document.getElementById('winAmountDisplay');
@@ -719,7 +1470,6 @@ function cashout() {
   if (winAmountDisplay) winAmountDisplay.textContent = formatNumber(gameState.currentWin);
   if (winMultiplierDisplay) winMultiplierDisplay.textContent = `${gameState.multiplier}x`;
   if (winOverlay) winOverlay.classList.add('active');
-  
   endRound();
 }
 
@@ -730,21 +1480,18 @@ function continuePlaying() {
   
   if (cashoutBtn) cashoutBtn.classList.add('hidden');
   if (continueBtn) continueBtn.classList.add('hidden');
-  if (messageText) messageText.textContent = 'Continue playing!';
   gameState.canFlip = true;
+  if (messageText) messageText.textContent = 'Continue playing!';
   if (audio) audio.playClick();
 }
 
 function handleBomb() {
   gameState.totalBets++;
-  
-  updateUserDataInFirebase(currentUser.id, { 
+  updateUserDataInFirebase(currentUser.id, {
     coins: gameState.balance,
     totalBets: gameState.totalBets
   });
-  
   saveGameToHistory(false, gameState.currentBet, 0, 1);
-  
   if (audio) audio.playBomb();
   
   const loseSubtext = document.getElementById('loseSubtext');
@@ -752,7 +1499,6 @@ function handleBomb() {
   
   if (loseSubtext) loseSubtext.textContent = `Lost ${formatNumber(gameState.currentBet)} coins`;
   if (loseOverlay) loseOverlay.classList.add('active');
-  
   endRound();
 }
 
@@ -761,14 +1507,12 @@ function handleMaxWin() {
   gameState.totalBets++;
   gameState.totalWins++;
   
-  updateUserDataInFirebase(currentUser.id, { 
+  updateUserDataInFirebase(currentUser.id, {
     coins: gameState.balance,
     totalBets: gameState.totalBets,
     totalWins: gameState.totalWins
   });
-  
   saveGameToHistory(true, gameState.currentBet, gameState.currentWin, CONFIG.MULTIPLIERS[CONFIG.MULTIPLIERS.length - 1]);
-  
   if (audio) audio.playWin();
   
   const winAmountDisplay = document.getElementById('winAmountDisplay');
@@ -778,20 +1522,17 @@ function handleMaxWin() {
   if (winAmountDisplay) winAmountDisplay.textContent = formatNumber(gameState.currentWin);
   if (winMultiplierDisplay) winMultiplierDisplay.textContent = `${CONFIG.MULTIPLIERS[CONFIG.MULTIPLIERS.length - 1]}x MAX!`;
   if (winOverlay) winOverlay.classList.add('active');
-  
   endRound();
 }
 
 function endRound() {
   gameState.isPlaying = false;
   gameState.canFlip = false;
-  
   const cashoutBtn = document.getElementById('cashoutBtn');
   const continueBtn = document.getElementById('continueBtn');
-  
   if (cashoutBtn) cashoutBtn.classList.add('hidden');
   if (continueBtn) continueBtn.classList.add('hidden');
-  updateGameUI();
+  updateUI();
 }
 
 function resetGame() {
@@ -809,22 +1550,27 @@ function resetGame() {
   if (startBtn) startBtn.classList.remove('hidden');
   if (progressSection) progressSection.classList.add('hidden');
   if (cardGrid) cardGrid.innerHTML = '';
-  if (messageText) messageText.textContent = 'Select bet';
-
+  
   gameState.currentBet = 0;
   gameState.currentWin = 0;
   gameState.multiplier = 1;
   gameState.pairsMatched = 0;
-
-  updateGameUI();
+  updateUI();
+  if (messageText) messageText.textContent = 'Select bet';
   if (audio) audio.playClick();
+}
+
+function updateProgress() {
+  const pairsMatched = document.getElementById('pairsMatched');
+  const progressFill = document.getElementById('progressFill');
+  if (pairsMatched) pairsMatched.textContent = `${gameState.pairsMatched}/${CONFIG.PAIRS_COUNT}`;
+  const percent = (gameState.pairsMatched / CONFIG.PAIRS_COUNT) * 100;
+  if (progressFill) progressFill.style.width = percent + '%';
 }
 
 function saveGameToHistory(won, betAmount, winAmount, multiplier) {
   if (!currentUser || currentUser.isGuest) return;
-
-  const gameRef = database.ref('game-history').push();
-  gameRef.set({
+  database.ref('game-history').push().set({
     userId: currentUser.id,
     username: currentUser.username,
     bet: betAmount,
@@ -835,455 +1581,195 @@ function saveGameToHistory(won, betAmount, winAmount, multiplier) {
   });
 }
 
-// ===== SHOP FUNCTIONS =====
-function renderShopGrid() {
-  const shopGrid = document.getElementById('shopGrid');
-  if (!shopGrid) return;
-  
-  const isGuest = currentUser && currentUser.isGuest;
-  const bonusRate = REFERRAL_CONFIG.DEPOSIT_BONUS_RATE * 100;
-  
-  const shopItems = [
-    { amount: 100, coins: 100, icon: '💰', bonus: Math.floor(100 * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE) },
-    { amount: 500, coins: 500, icon: '💰', bonus: Math.floor(500 * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE) },
-    { amount: 1000, coins: 1000, icon: '💰', bonus: Math.floor(1000 * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE) },
-    { amount: 3000, coins: 3000, icon: '💰', bonus: Math.floor(3000 * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE), featured: true },
-    { amount: 5000, coins: 5000, icon: '💰', bonus: Math.floor(5000 * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE) },
-    { amount: 10000, coins: 10000, icon: '💰', bonus: Math.floor(10000 * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE) },
-  ];
-
-  shopGrid.innerHTML = shopItems.map(item => `
-    <div class="shop-card ${isGuest ? 'guest-disabled' : ''} ${item.featured ? 'featured' : ''}" onclick="${isGuest ? '' : `purchaseCoins(${item.amount}, ${item.coins})`}">
-      <div class="shop-icon">${item.icon}</div>
-      <div class="shop-amount">₨${item.amount}</div>
-      <div class="shop-coins">${formatNumber(item.coins)} Coins</div>
-      <div class="shop-bonus">+${formatNumber(item.bonus)} Bonus (${bonusRate}%)</div>
-      <div class="shop-total">Total: ${formatNumber(item.coins + item.bonus)} Coins</div>
-      ${item.featured ? '<div class="shop-badge">🔥 BEST VALUE</div>' : ''}
-      <button class="shop-btn" ${isGuest ? 'disabled' : ''}>${isGuest ? 'Login to Buy' : 'BUY NOW'}</button>
-    </div>
-  `).join('');
-
-  const paymentGrid = document.getElementById('paymentMethodsGrid');
-  if (paymentGrid) {
-    paymentGrid.innerHTML = `
-      <div class="payment-card">
-        <div class="payment-icon">📱</div>
-        <div class="payment-name">JazzCash</div>
-        <div class="payment-desc">Instant top-up with ${bonusRate}% bonus</div>
-      </div>
-      <div class="payment-card">
-        <div class="payment-icon">💳</div>
-        <div class="payment-name">Easypaisa</div>
-        <div class="payment-desc">Quick deposit with ${bonusRate}% bonus</div>
-      </div>
-      <div class="payment-card">
-        <div class="payment-icon">🏦</div>
-        <div class="payment-name">Bank Transfer</div>
-        <div class="payment-desc">Direct transfer with ${bonusRate}% bonus</div>
-      </div>
-    `;
-  }
+// ===== OFFERS FUNCTIONS =====
+function openOffers() { 
+  const section = document.getElementById('offersSection');
+  if (section) section.classList.add('active'); 
+  if (audio) audio.playClick(); 
 }
 
-function openShop() {
-  renderShopGrid();
-  const shopSection = document.getElementById('shopSection');
-  if (shopSection) shopSection.classList.add('active');
-  if (audio) audio.playClick();
+function closeOffers() { 
+  const section = document.getElementById('offersSection');
+  if (section) section.classList.remove('active'); 
+  if (audio) audio.playClick(); 
 }
 
-function closeShop() {
-  const shopSection = document.getElementById('shopSection');
-  if (shopSection) shopSection.classList.remove('active');
-  if (audio) audio.playClick();
+function openMissions() { 
+  const missionsSection = document.getElementById('missionsSection');
+  if (missionsSection) missionsSection.classList.add('active');
+  closeOffers(); 
+  if (audio) audio.playClick(); 
 }
 
-// ===== AUTH FUNCTIONS =====
-function openAuthModal(tab) {
-  const overlay = document.getElementById('authOverlay');
-  if (overlay) overlay.classList.add('active');
-  switchAuthTab(tab);
-  if (audio) audio.playClick();
+function closeMissions() { 
+  const missionsSection = document.getElementById('missionsSection');
+  if (missionsSection) missionsSection.classList.remove('active');
+  openOffers(); 
 }
 
-function switchAuthTab(tab) {
-  const authTitle = document.getElementById('authTitle');
-  const loginForm = document.getElementById('loginForm');
-  const registerForm = document.getElementById('registerForm');
-  
-  if (authTitle) authTitle.textContent = tab === 'login' ? 'Login' : 'Register';
-  if (loginForm) loginForm.classList.toggle('active', tab === 'login');
-  if (registerForm) registerForm.classList.toggle('active', tab === 'register');
+function openEvents() { 
+  const eventsSection = document.getElementById('eventsSection');
+  if (eventsSection) eventsSection.classList.add('active');
+  closeOffers(); 
+  if (audio) audio.playClick(); 
 }
 
-function closeAuth() {
-  const overlay = document.getElementById('authOverlay');
-  if (overlay) overlay.classList.remove('active');
-  if (audio) audio.playClick();
+function closeEvents() { 
+  const eventsSection = document.getElementById('eventsSection');
+  if (eventsSection) eventsSection.classList.remove('active');
+  openOffers(); 
 }
 
-function guestLogin() {
-  currentUser = {
-    username: 'Guest_' + Math.floor(Math.random() * 9999),
-    avatar: '👤',
-    isGuest: true,
-    id: 'GUEST' + Math.floor(Math.random() * 999),
-    totalBets: 0,
-    totalWins: 0
-  };
-  gameState.balance = 0;
-  closeAuth();
-  updateHeaderForUser();
-  updateGameUI();
-  hideAuthButtons();
-  showPopup('Guest Mode', 'You are playing as guest with 0 coins');
+function openSupport() { 
+  const supportSection = document.getElementById('supportSection');
+  if (supportSection) supportSection.classList.add('active');
+  closeOffers(); 
+  if (audio) audio.playClick(); 
 }
 
-function updateHeaderForUser() {
-  const headerUsername = document.getElementById('headerUsername');
-  const headerAvatar = document.getElementById('headerAvatarIcon');
-  const userStatus = document.getElementById('userStatus');
-
-  if (currentUser) {
-    if (headerUsername) headerUsername.textContent = currentUser.username;
-    if (headerAvatar) headerAvatar.textContent = currentUser.avatar || '👤';
-    if (userStatus) userStatus.textContent = currentUser.isGuest ? 'Guest Mode' : 'Verified Player';
-  }
+function closeSupport() { 
+  const supportSection = document.getElementById('supportSection');
+  if (supportSection) supportSection.classList.remove('active');
+  openOffers(); 
 }
 
-function hideAuthButtons() {
-  const authButtons = document.getElementById('authButtons');
-  if (authButtons) authButtons.style.display = 'none';
+function openVIPPopup() { 
+  const vipPopup = document.getElementById('vipPopup');
+  if (vipPopup) vipPopup.classList.add('active'); 
+  if (audio) audio.playClick(); 
 }
 
-function showAuthButtons() {
-  const authButtons = document.getElementById('authButtons');
-  if (authButtons) authButtons.style.display = 'flex';
+function closeVIPPopup() { 
+  const vipPopup = document.getElementById('vipPopup');
+  if (vipPopup) vipPopup.classList.remove('active'); 
+  if (audio) audio.playClick(); 
 }
 
-function openProfile() {
-  if (!currentUser) {
-    openAuthModal('login');
+function unlockVIP() {
+  if (gameState.balance < 100000) {
+    showPopup('Insufficient Balance', 'Need 100,000 coins');
     return;
   }
-  const profileModal = document.getElementById('profileModal');
-  if (profileModal) profileModal.classList.add('active');
-  
-  const profileNameDisplay = document.getElementById('profileNameDisplay');
-  const profileIdDisplay = document.getElementById('profileIdDisplay');
-  const currentAvatarDisplay = document.getElementById('currentAvatarDisplay');
-  const profileCoins = document.getElementById('profileCoins');
-  const profileBets = document.getElementById('profileBets');
-  const profileWins = document.getElementById('profileWins');
-  
-  if (profileNameDisplay) profileNameDisplay.textContent = currentUser.username;
-  if (profileIdDisplay) profileIdDisplay.textContent = 'ID: ' + currentUser.id;
-  if (currentAvatarDisplay) currentAvatarDisplay.textContent = currentUser.avatar || '👤';
-  if (profileCoins) profileCoins.textContent = formatNumber(gameState.balance);
-  if (profileBets) profileBets.textContent = gameState.totalBets || 0;
-  if (profileWins) profileWins.textContent = gameState.totalWins || 0;
+  gameState.balance -= 100000;
+  updateUI();
+  updateUserDataInFirebase(currentUser.id, { coins: gameState.balance });
+  closeVIPPopup();
+  showPopup('VIP Unlocked!', 'Welcome to VIP club!');
+  if (audio) audio.playWin();
 }
 
-function closeProfile() {
-  const profileModal = document.getElementById('profileModal');
-  if (profileModal) profileModal.classList.remove('active');
+// ===== MODAL FUNCTIONS =====
+function openModal(modalId) { 
+  const modal = document.getElementById(modalId);
+  if (modal) modal.classList.add('active'); 
+  if (audio) audio.playClick(); 
 }
 
-function logout() {
-  if (currentUser && !currentUser.isGuest) {
-    auth.signOut();
+function closeModal(modalId) { 
+  const modal = document.getElementById(modalId);
+  if (modal) modal.classList.remove('active'); 
+  if (audio) audio.playClick(); 
+}
+
+function toggleSound() { 
+  audio.toggle(); 
+}
+
+function toggleNotifications() { 
+  showPopup('Notifications', 'Notification settings saved'); 
+}
+
+function showThemeSelector() { 
+  const selector = document.getElementById('themeSelector');
+  if (selector) selector.classList.toggle('active'); 
+  if (audio) audio.playClick(); 
+}
+
+function changeTheme(themeName) {
+  document.body.className = 'theme-' + themeName;
+  document.querySelectorAll('.theme-btn').forEach(btn => btn.classList.remove('active'));
+  if (event && event.target) {
+    const btn = event.target.closest('.theme-btn');
+    if (btn) btn.classList.add('active');
   }
-  currentUser = null;
-  closeProfile();
-  gameState.balance = 0;
-  updateHeaderForUser();
-  updateGameUI();
-  showAuthButtons();
-  openAuthModal('login');
-  showPopup('Logged out', 'You have been logged out');
-}
-
-function enterGame() {
-  const loader = document.getElementById('gameEntryLoader');
-  const gameView = document.getElementById('gameView');
-
-  if (loader) loader.classList.add('active');
-  if (audio) audio.playClick();
-
-  setTimeout(() => {
-    if (loader) loader.classList.remove('active');
-    if (gameView) gameView.classList.add('active');
-    isInGame = true;
-    
-    const betPanel = document.getElementById('betPanel');
-    const startBtn = document.getElementById('startBtn');
-    const messageText = document.getElementById('messageText');
-    
-    if (betPanel) betPanel.style.display = 'block';
-    if (startBtn) startBtn.classList.remove('hidden');
-    if (messageText) messageText.textContent = currentUser ? 'Select your bet' : 'Login to play';
-  }, 3000);
-}
-
-function exitGame() {
-  const gameView = document.getElementById('gameView');
-  if (gameView) gameView.classList.remove('active');
-  isInGame = false;
   if (audio) audio.playClick();
 }
 
-function handleLoginSubmit(form) {
-  const email = form.email.value.trim();
-  const password = form.password.value.trim();
-  const errorContainer = document.getElementById('loginErrors');
-
-  if (errorContainer) {
-    errorContainer.classList.remove('active');
-    errorContainer.innerHTML = '';
-  }
-
-  if (!email || !password) {
-    if (errorContainer) {
-      errorContainer.innerHTML = 'Please fill in all fields';
-      errorContainer.classList.add('active');
-    }
-    return;
-  }
-
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = 'Logging in...';
-  submitBtn.disabled = true;
-
-  auth.signInWithEmailAndPassword(email, password)
-    .then(async (userCredential) => {
-      const user = userCredential.user;
-      const userData = await getUserDataFromFirebase(user.uid);
-
-      if (userData) {
-        currentUser = {
-          username: userData.username,
-          avatar: userData.avatar || '👤',
-          isGuest: false,
-          id: user.uid,
-          totalBets: userData.totalBets || 0,
-          totalWins: userData.totalWins || 0,
-          referredBy: userData.referredBy || null
-        };
-        gameState.balance = userData.coins || 1000;
-        gameState.totalBets = userData.totalBets || 0;
-        gameState.totalWins = userData.totalWins || 0;
-
-        updateHeaderForUser();
-        updateGameUI();
-        hideAuthButtons();
-        closeAuth();
-        loadReferralData();
-        showPopup('Welcome back!', `Logged in as ${currentUser.username}`);
-      }
-    })
-    .catch((error) => {
-      let errorMessage = 'Email or password is incorrect';
-      if (error.code === 'auth/user-not-found') errorMessage = 'No account found';
-      else if (error.code === 'auth/wrong-password') errorMessage = 'Incorrect password';
-      
-      if (errorContainer) {
-        errorContainer.innerHTML = errorMessage;
-        errorContainer.classList.add('active');
-      }
-    })
-    .finally(() => {
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
-    });
-}
-
-function handleRegisterSubmit(form) {
-  const username = form.username.value.trim();
-  const email = form.email.value.trim();
-  const password = form.password.value.trim();
-  const confirmPassword = form.confirmPassword.value.trim();
-  const manualReferralCode = form.referralCode?.value.trim() || '';
-  const urlReferralCode = getReferralCodeFromURL();
-  const referralCode = urlReferralCode || manualReferralCode;
-  const errorContainer = document.getElementById('registerErrors');
-
-  if (errorContainer) {
-    errorContainer.classList.remove('active');
-    errorContainer.innerHTML = '';
-  }
-
-  if (!username || !email || !password || !confirmPassword) {
-    if (errorContainer) {
-      errorContainer.innerHTML = 'Please fill all fields';
-      errorContainer.classList.add('active');
-    }
-    return;
-  }
-
-  if (password !== confirmPassword) {
-    if (errorContainer) {
-      errorContainer.innerHTML = 'Passwords do not match';
-      errorContainer.classList.add('active');
-    }
-    return;
-  }
-
-  if (password.length < 6) {
-    if (errorContainer) {
-      errorContainer.innerHTML = 'Password must be 6+ characters';
-      errorContainer.classList.add('active');
-    }
-    return;
-  }
-
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const originalText = submitBtn.textContent;
-  submitBtn.textContent = 'Creating account...';
-  submitBtn.disabled = true;
-
-  auth.createUserWithEmailAndPassword(email, password)
-    .then(async (userCredential) => {
-      const user = userCredential.user;
-      
-      const userData = {
-        username: username,
-        avatar: '👤',
-        email: email,
-        coins: 1000,
-        totalBets: 0,
-        totalWins: 0,
-        createdAt: new Date().toISOString(),
-        referredBy: null,
-        referralCode: null,
-        referralCount: 0,
-        referralEarnings: 0,
-        activeReferrals: 0,
-        referralMilestones: { 5: false, 10: false, 25: false, 50: false }
-      };
-
-      await database.ref('users/' + user.uid).set(userData);
-      await createReferralCode(user.uid, username);
-      
-      let referredById = null;
-      if (referralCode) {
-        referredById = await applyReferral(referralCode, user.uid, username);
-        if (referredById) {
-          await database.ref('users/' + user.uid).update({ referredBy: referredById });
-        }
-      }
-
-      currentUser = {
-        username: username,
-        avatar: '👤',
-        isGuest: false,
-        id: user.uid,
-        totalBets: 0,
-        totalWins: 0,
-        referredBy: referredById
-      };
-
-      gameState.balance = 1000;
-
-      updateHeaderForUser();
-      updateGameUI();
-      hideAuthButtons();
-      closeAuth();
-      loadReferralData();
-      
-      if (referralCode && referredById) {
-        showPopup('Welcome!', `Account created with referral! Deposit ${REFERRAL_CONFIG.MIN_DEPOSIT_FOR_COMMISSION}+ coins to earn commission for your referrer!`);
-      } else {
-        showPopup('Welcome!', `Account created, ${username}! Get ${REFERRAL_CONFIG.DEPOSIT_BONUS_RATE*100}% bonus on every deposit!`);
-      }
-    })
-    .catch((error) => {
-      let errorMessage = 'Registration failed';
-      if (error.code === 'auth/email-already-in-use') errorMessage = 'Email already exists';
-      
-      if (errorContainer) {
-        errorContainer.innerHTML = errorMessage;
-        errorContainer.classList.add('active');
-      }
-    })
-    .finally(() => {
-      submitBtn.textContent = originalText;
-      submitBtn.disabled = false;
-    });
-}
-
-function openReferral() {
+function openReferral() { 
   const referralSection = document.getElementById('referralSection');
   if (referralSection) referralSection.classList.add('active');
   loadReferralData();
-  if (audio) audio.playClick();
+  if (audio) audio.playClick(); 
 }
 
-function closeReferral() {
+function closeReferral() { 
   const referralSection = document.getElementById('referralSection');
   if (referralSection) referralSection.classList.remove('active');
 }
 
-function openWithdraw() {
-  if (!currentUser || currentUser.isGuest) {
-    showPopup('Login Required', 'Please login to withdraw');
-    openAuthModal('login');
-    return;
+// ===== AUDIO SYSTEM =====
+class AudioSystem {
+  constructor() { 
+    this.muted = false; 
+    this.audioContext = null; 
+    this.initAudioContext(); 
   }
   
-  const withdrawBalance = document.getElementById('withdrawBalance');
-  if (withdrawBalance) withdrawBalance.textContent = formatNumber(gameState.balance);
-  
-  const withdrawPopup = document.getElementById('withdrawPopup');
-  if (withdrawPopup) withdrawPopup.classList.add('active');
-  if (audio) audio.playClick();
-}
-
-function closeWithdrawPopup() {
-  const withdrawPopup = document.getElementById('withdrawPopup');
-  if (withdrawPopup) withdrawPopup.classList.remove('active');
-}
-
-function processWithdraw() {
-  const amount = parseInt(document.getElementById('withdrawAmount')?.value);
-  const method = document.getElementById('withdrawMethod')?.value;
-  
-  if (!amount || amount < 1000) {
-    showPopup('Error', 'Minimum withdrawal is 1000 coins');
-    return;
+  initAudioContext() { 
+    try { 
+      this.audioContext = new (window.AudioContext || window.webkitAudioContext)(); 
+    } catch (e) {} 
   }
   
-  if (amount > gameState.balance) {
-    showPopup('Error', 'Insufficient balance');
-    return;
+  playTone(f, d, type = 'sine', v = 0.3) {
+    if (this.muted || !this.audioContext) return;
+    const o = this.audioContext.createOscillator();
+    const g = this.audioContext.createGain();
+    o.connect(g); 
+    g.connect(this.audioContext.destination);
+    o.frequency.value = f; 
+    o.type = type;
+    g.gain.setValueAtTime(v, this.audioContext.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + d);
+    o.start(this.audioContext.currentTime);
+    o.stop(this.audioContext.currentTime + d);
   }
   
-  showPopup('Withdrawal Request', `Your withdrawal request for ${amount} coins has been submitted. Admin will process it shortly.`);
-  closeWithdrawPopup();
+  playCardFlip() { 
+    this.playTone(800, 0.08, 'sine', 0.2); 
+    setTimeout(() => this.playTone(600, 0.08, 'sine', 0.15), 40); 
+  }
+  playMatch() { 
+    [523, 659, 784, 1047].forEach((n, i) => setTimeout(() => this.playTone(n, 0.15), i * 80)); 
+  }
+  playWin() { 
+    [523, 659, 784, 1047, 1319, 1568].forEach((n, i) => setTimeout(() => this.playTone(n, 0.25), i * 100)); 
+  }
+  playBomb() { 
+    this.playTone(150, 0.4); 
+    setTimeout(() => this.playTone(100, 0.3), 80); 
+    setTimeout(() => this.playTone(80, 0.2), 160); 
+  }
+  playClick() { 
+    this.playTone(1000, 0.04); 
+  }
+  playCashout() { 
+    [784, 988, 1175, 1568].forEach((n, i) => setTimeout(() => this.playTone(n, 0.2), i * 60)); 
+  }
+  playShuffle() { 
+    for (let i = 0; i < 5; i++) setTimeout(() => this.playTone(200 + Math.random() * 400, 0.05), i * 50); 
+  }
+  toggle() { 
+    this.muted = !this.muted; 
+    const soundToggle = document.getElementById('soundToggle');
+    if (soundToggle) soundToggle.classList.toggle('active', !this.muted); 
+    return this.muted; 
+  }
 }
 
-// ===== NOTIFICATION FUNCTIONS =====
-function openNotificationPanel() {
-  const panel = document.getElementById('notificationPanel');
-  if (panel) panel.classList.add('open');
-}
+const audio = new AudioSystem();
 
-function closeNotificationPanel() {
-  const panel = document.getElementById('notificationPanel');
-  if (panel) panel.classList.remove('open');
-}
-
-// ===== UI FUNCTIONS =====
-function updateUI() {
-  updateGameUI();
-}
-
-function setActiveNav(element) {
-  document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-  element.classList.add('active');
-}
-
+// ===== INITIALIZATION =====
 function createParticles() {
   const container = document.getElementById('particles');
   if (!container) return;
@@ -1299,27 +1785,35 @@ function createParticles() {
 
 function initApp() {
   createParticles();
+  startLeaderboardRotation();
   
-  // Setup bet options
+  // Setup bet option listeners
   document.querySelectorAll('.bet-option').forEach(btn => {
     btn.addEventListener('click', () => selectBet(parseInt(btn.dataset.bet)));
   });
   
-  document.getElementById('customBetBtn')?.addEventListener('click', () => {
-    const val = parseInt(document.getElementById('customBet')?.value);
-    if (!isNaN(val)) selectBet(val);
-  });
+  const customBetBtn = document.getElementById('customBetBtn');
+  if (customBetBtn) {
+    customBetBtn.addEventListener('click', () => {
+      const val = parseInt(document.getElementById('customBet').value);
+      if (!isNaN(val)) selectBet(val);
+    });
+  }
   
-  document.getElementById('startBtn')?.addEventListener('click', startGame);
-  document.getElementById('cashoutBtn')?.addEventListener('click', cashout);
-  document.getElementById('continueBtn')?.addEventListener('click', continuePlaying);
-  document.getElementById('playAgainWin')?.addEventListener('click', resetGame);
-  document.getElementById('playAgainLose')?.addEventListener('click', resetGame);
+  const startBtn = document.getElementById('startBtn');
+  const cashoutBtn = document.getElementById('cashoutBtn');
+  const continueBtn = document.getElementById('continueBtn');
+  const playAgainWin = document.getElementById('playAgainWin');
+  const playAgainLose = document.getElementById('playAgainLose');
   
-  // Check for referral code in URL
+  if (startBtn) startBtn.addEventListener('click', startGame);
+  if (cashoutBtn) cashoutBtn.addEventListener('click', cashout);
+  if (continueBtn) continueBtn.addEventListener('click', continuePlaying);
+  if (playAgainWin) playAgainWin.addEventListener('click', resetGame);
+  if (playAgainLose) playAgainLose.addEventListener('click', resetGame);
+  
   const refCode = getReferralCodeFromURL();
   if (refCode) {
-    localStorage.setItem('pendingReferralCode', refCode);
     setTimeout(() => {
       openAuthModal('register');
       const referralInput = document.querySelector('#registerForm input[name="referralCode"]');
@@ -1327,74 +1821,10 @@ function initApp() {
     }, 1000);
   }
   
-  console.log("✅ Royal Match ready! Get 2.5% bonus on every deposit!");
+  console.log("✅ Royal Match ready!");
 }
 
-// ===== AUDIO SYSTEM =====
-class AudioSystem {
-  constructor() {
-    this.muted = false;
-    this.audioContext = null;
-  }
-
-  initAudioContext() {
-    try {
-      this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) {}
-  }
-
-  playTone(frequency, duration, volume = 0.3) {
-    if (this.muted || !this.audioContext) return;
-    const oscillator = this.audioContext.createOscillator();
-    const gainNode = this.audioContext.createGain();
-    oscillator.connect(gainNode);
-    gainNode.connect(this.audioContext.destination);
-    oscillator.frequency.value = frequency;
-    gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration);
-    oscillator.start(this.audioContext.currentTime);
-    oscillator.stop(this.audioContext.currentTime + duration);
-  }
-
-  playCardFlip() {
-    this.playTone(800, 0.08, 0.2);
-    setTimeout(() => this.playTone(600, 0.08, 0.15), 40);
-  }
-
-  playMatch() {
-    [523, 659, 784].forEach((n, i) => setTimeout(() => this.playTone(n, 0.15), i * 80));
-  }
-
-  playWin() {
-    [523, 659, 784, 1047].forEach((n, i) => setTimeout(() => this.playTone(n, 0.2), i * 100));
-  }
-
-  playBomb() {
-    this.playTone(150, 0.4);
-    setTimeout(() => this.playTone(100, 0.3), 80);
-  }
-
-  playClick() {
-    this.playTone(1000, 0.04);
-  }
-
-  playCashout() {
-    [784, 988, 1175].forEach((n, i) => setTimeout(() => this.playTone(n, 0.2), i * 60));
-  }
-
-  playShuffle() {
-    for (let i = 0; i < 5; i++) setTimeout(() => this.playTone(200 + Math.random() * 400, 0.05), i * 50);
-  }
-
-  toggle() {
-    this.muted = !this.muted;
-    return this.muted;
-  }
-}
-
-const audio = new AudioSystem();
-
-// Make functions globally available
+// Make all functions globally available
 window.openAuthModal = openAuthModal;
 window.switchAuthTab = switchAuthTab;
 window.closeAuth = closeAuth;
@@ -1402,26 +1832,57 @@ window.guestLogin = guestLogin;
 window.openProfile = openProfile;
 window.closeProfile = closeProfile;
 window.logout = logout;
-window.enterGame = enterGame;
-window.exitGame = exitGame;
-window.handleLoginSubmit = handleLoginSubmit;
-window.handleRegisterSubmit = handleRegisterSubmit;
-window.openShop = openShop;
-window.closeShop = closeShop;
-window.purchaseCoins = purchaseCoins;
+window.changeAvatar = changeAvatar;
+window.selectAvatar = selectAvatar;
+window.closeAvatarPopup = closeAvatarPopup;
+window.showEditUsername = showEditUsername;
+window.updateUsername = updateUsername;
+window.cancelEdit = cancelEdit;
+window.saveWithdrawalAccounts = saveWithdrawalAccounts;
+window.openVIPPopup = openVIPPopup;
+window.closeVIPPopup = closeVIPPopup;
+window.unlockVIP = unlockVIP;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.toggleSound = toggleSound;
+window.toggleNotifications = toggleNotifications;
+window.showThemeSelector = showThemeSelector;
+window.changeTheme = changeTheme;
+window.setActiveNav = setActiveNav;
 window.openReferral = openReferral;
 window.closeReferral = closeReferral;
 window.copyReferralCode = copyReferralCode;
 window.copyReferralLink = copyReferralLink;
+window.filterReferrals = filterReferrals;
+window.claimMilestone = claimMilestone;
+window.openShop = openShop;
+window.closeShop = closeShop;
+window.purchaseCoins = purchaseCoins;
 window.openWithdraw = openWithdraw;
 window.closeWithdrawPopup = closeWithdrawPopup;
 window.processWithdraw = processWithdraw;
+window.enterGame = enterGame;
+window.exitGame = exitGame;
+window.handleLoginSubmit = handleLoginSubmit;
+window.handleRegisterSubmit = handleRegisterSubmit;
+window.closePopup = closePopup;
 window.openNotificationPanel = openNotificationPanel;
 window.closeNotificationPanel = closeNotificationPanel;
-window.setActiveNav = setActiveNav;
-window.showPopup = showPopup;
+window.deleteNotification = deleteNotification;
+window.deleteAllNotifications = deleteAllNotifications;
+window.openOffers = openOffers;
+window.closeOffers = closeOffers;
+window.openMissions = openMissions;
+window.closeMissions = closeMissions;
+window.openEvents = openEvents;
+window.closeEvents = closeEvents;
+window.openSupport = openSupport;
+window.closeSupport = closeSupport;
+window.openSupportBot = openSupportBot;
+window.openAdditionalSupport = openAdditionalSupport;
+window.closeAdditionalSupport = closeAdditionalSupport;
+window.sendSupportMessage = sendSupportMessage;
 
 document.addEventListener('DOMContentLoaded', () => {
   initApp();
-  updateGameUI();
 });
