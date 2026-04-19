@@ -1,5 +1,5 @@
-// ===== ROYAL MATCH - COMPLETE GAME =====
-console.log("🎮 Royal Match - Loading...");
+// ===== ROYAL MATCH - COMPLETE WITH VIP AND DAILY REWARDS =====
+console.log("🎮 CASINO SHUFFLE 786 - Loading...");
 
 // ===== FIREBASE CONFIG =====
 const firebaseConfig = {
@@ -13,16 +13,9 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
-}
+firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const database = firebase.database();
-
-// ===== ENABLE FIREBASE PERSISTENCE =====
-auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
-  .then(() => console.log("✅ Firebase persistence enabled"))
-  .catch((error) => console.error("Persistence error:", error));
 
 // ===== GLOBAL VARIABLES =====
 let currentUser = null;
@@ -31,20 +24,8 @@ let autoRefreshInterval = null;
 let currentWithdrawalId = null;
 let countdownInterval = null;
 let notifications = [];
-let pendingPurchaseAmount = null;
-let pendingPurchaseCoins = null;
-let pendingPurchaseBonus = null;
-
-// ===== WAGER CONFIGURATION =====
-const WAGER_CONFIG = {
-  WITHDRAWAL_REQUIREMENT_RATE: 0.70
-};
-
-// ===== WITHDRAWAL CONFIGURATION =====
-const WITHDRAWAL_CONFIG = {
-  MIN_WITHOUT_WAGER: 1000,
-  MIN_AFTER_WAGER: 100
-};
+let currentPurchaseAmount = 0;
+let currentPurchaseCoins = 0;
 
 // ===== VIP SYSTEM CONFIGURATION =====
 const VIP_CONFIG = {
@@ -69,7 +50,8 @@ const REFERRAL_CONFIG = {
   MIN_DEPOSIT_FOR_COMMISSION: 3000,
   COMMISSION_RATE: 0.10,
   DEPOSIT_BONUS_RATE: 0.025,
-  MILESTONE_REWARDS: { 5: 500, 10: 1500, 25: 5000, 50: 15000 }
+  MILESTONE_REWARDS: { 5: 500, 10: 1500, 25: 5000, 50: 15000 },
+  WAGER_REQUIREMENT: 70
 };
 
 // ===== GAME STATE =====
@@ -88,12 +70,11 @@ const gameState = {
   totalBets: 0,
   totalWins: 0,
   totalSpent: 0,
-  totalWagered: 0,
-  totalDeposits: 0,
-  requiredWagered: 0,
   vipLevel: 0,
   lastGameResult: null,
-  lastGameTimestamp: 0
+  lastGameTimestamp: 0,
+  pendingWagerAmount: 0,
+  totalWagered: 0
 };
 
 // ===== REWARD TRACKING =====
@@ -117,23 +98,25 @@ let referralData = {
   milestones: { 5: false, 10: false, 25: false, 50: false }
 };
 
-// ===== WITHDRAWAL ACCOUNTS =====
+// ===== WITHDRAWAL ACCOUNTS (Only JazzCash & Easypaisa) =====
 let savedAccounts = {
   jazzcash: "",
   easypaisa: ""
 };
 
-// ===== GAME CONFIG - UPDATED =====
+// ===== GAME CONFIG - UPDATED TO 28 CARDS =====
 const CONFIG = {
-  PAIRS_COUNT: 11,
-  BOMB_COUNT: 4,
-  GOLDEN_COUNT: 2,
+  PAIRS_COUNT: 11,  // 11 pairs = 22 cards
+  BOMB_COUNT: 4,    // 4 bombs
+  GOLDEN_COUNT: 2,  // 2 golden cards
+  // Total: 22 + 4 + 2 = 28 cards
   GOLDEN_MULTIPLIER: 20,
   MULTIPLIERS: [1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 22.0, 35.0],
   MIN_BET: 10,
   MAX_BET: 5000
 };
 
+// 11 values for 11 pairs
 const CARD_VALUES = ['A', 'K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4'];
 const CARD_SUITS = [
   { symbol: '♥', color: 'red' },
@@ -182,13 +165,6 @@ function closePopup() {
   if (successPopup) successPopup.classList.remove('active');
 }
 
-// ===== COPY JAZZCASH NUMBER =====
-function copyJazzCashNumber() {
-  const number = '03149595863';
-  navigator.clipboard.writeText(number);
-  showPopup('Copied!', 'JazzCash number copied to clipboard');
-}
-
 // ===== VIP FUNCTIONS =====
 function calculateVIPLevel(totalSpent) {
   let level = 0;
@@ -228,6 +204,36 @@ async function updateVIPLevel(userId, totalSpent) {
   });
   
   return newLevel;
+}
+
+// ===== WAGERING SYSTEM =====
+async function updateWagering(userId, betAmount) {
+  if (!userId || betAmount <= 0) return;
+  
+  const userRef = database.ref('users/' + userId);
+  const snapshot = await userRef.once('value');
+  const userData = snapshot.val();
+  
+  let pendingWager = userData.pendingWagerAmount || 0;
+  let totalWagered = userData.totalWagered || 0;
+  
+  if (pendingWager > 0) {
+    const newWagered = Math.min(betAmount, pendingWager);
+    pendingWager -= newWagered;
+    totalWagered += newWagered;
+    
+    await userRef.update({
+      pendingWagerAmount: pendingWager,
+      totalWagered: totalWagered
+    });
+    
+    gameState.pendingWagerAmount = pendingWager;
+    gameState.totalWagered = totalWagered;
+    
+    if (pendingWager === 0 && totalWagered > 0) {
+      sendNotificationToPlayer(userId, '✅ Wagering Complete!', 'You have completed your wagering requirement! You can now withdraw your funds.', '✅');
+    }
+  }
 }
 
 // ===== DAILY REWARDS FUNCTIONS =====
@@ -533,134 +539,6 @@ function sendNotificationToPlayer(userId, title, message, icon = '📢') {
   });
 }
 
-// ===== PAYMENT REQUEST FUNCTIONS =====
-async function submitPaymentRequest() {
-  if (!currentUser || currentUser.isGuest) {
-    showPopup('Login Required', 'Please login to purchase');
-    openAuthModal('login');
-    return;
-  }
-  
-  const playerNumber = document.getElementById('playerNumberInput').value.trim();
-  if (!playerNumber || playerNumber.length < 10) {
-    showPopup('Error', 'Please enter a valid JazzCash/Easypaisa number');
-    return;
-  }
-  
-  const paymentRequestRef = database.ref('payment-requests').push();
-  await paymentRequestRef.set({
-    userId: currentUser.id,
-    username: currentUser.username,
-    playerNumber: playerNumber,
-    amount: pendingPurchaseAmount,
-    coins: pendingPurchaseCoins,
-    bonusCoins: pendingPurchaseBonus,
-    totalCoins: pendingPurchaseCoins + pendingPurchaseBonus,
-    requiredWager: Math.floor((pendingPurchaseCoins + pendingPurchaseBonus) * WAGER_CONFIG.WITHDRAWAL_REQUIREMENT_RATE),
-    status: 'pending',
-    timestamp: new Date().toISOString()
-  });
-  
-  const adminNotifRef = database.ref('admin-notifications').push();
-  await adminNotifRef.set({
-    type: 'payment_request',
-    userId: currentUser.id,
-    username: currentUser.username,
-    amount: pendingPurchaseAmount,
-    message: `New payment request for ${pendingPurchaseAmount} PKR from ${currentUser.username}`,
-    read: false,
-    timestamp: new Date().toISOString()
-  });
-  
-  showPaymentInfoPage();
-  
-  pendingPurchaseAmount = null;
-  pendingPurchaseCoins = null;
-  pendingPurchaseBonus = null;
-}
-
-function showPaymentNumberPage(amount, coins, bonusCoins) {
-  pendingPurchaseAmount = amount;
-  pendingPurchaseCoins = coins;
-  pendingPurchaseBonus = bonusCoins;
-  
-  const amountDisplay = document.getElementById('paymentAmountDisplay');
-  if (amountDisplay) {
-    amountDisplay.innerHTML = `
-      <div class="payment-amount-card-content">
-        <h3>Purchase Details</h3>
-        <p>Amount: ₨${amount}</p>
-        <p>Coins: ${formatNumber(coins)}</p>
-        <p>Bonus: +${formatNumber(bonusCoins)} coins</p>
-        <p>Total: ${formatNumber(coins + bonusCoins)} coins</p>
-      </div>
-    `;
-  }
-  
-  document.getElementById('paymentNumberPage').classList.add('active');
-  document.getElementById('shopSection').classList.remove('active');
-  if (audio) audio.playClick();
-}
-
-function closePaymentNumberPage() {
-  document.getElementById('paymentNumberPage').classList.remove('active');
-  document.getElementById('playerNumberInput').value = '';
-  openShop();
-}
-
-function showPaymentInfoPage() {
-  const infoAmount = document.getElementById('paymentInfoAmount');
-  if (infoAmount && pendingPurchaseCoins) {
-    infoAmount.innerHTML = `<strong>Amount to Pay:</strong> ₨${pendingPurchaseAmount}<br>
-                            <strong>You will receive:</strong> ${formatNumber(pendingPurchaseCoins + pendingPurchaseBonus)} coins`;
-  }
-  
-  document.getElementById('paymentNumberPage').classList.remove('active');
-  document.getElementById('paymentInfoPage').classList.add('active');
-  if (audio) audio.playClick();
-}
-
-function closePaymentInfoPage() {
-  document.getElementById('paymentInfoPage').classList.remove('active');
-  openShop();
-}
-
-function goBackToShop() {
-  closePaymentInfoPage();
-}
-
-// ===== WAGER FUNCTIONS =====
-function getRemainingWagerRequirement(user) {
-  const requiredWager = user.requiredWagered || 0;
-  const wagered = user.totalWagered || 0;
-  const remaining = requiredWager - wagered;
-  return Math.max(0, remaining);
-}
-
-function hasMetWagerRequirement(user) {
-  const requiredWager = user.requiredWagered || 0;
-  const wagered = user.totalWagered || 0;
-  return wagered >= requiredWager;
-}
-
-function canWithdraw(user, withdrawalAmount) {
-  const wagerMet = hasMetWagerRequirement(user);
-  const hasBalance = (user.coins || 0) >= withdrawalAmount;
-  return wagerMet && hasBalance;
-}
-
-function getWagerProgress(user) {
-  const requiredWager = user.requiredWagered || 0;
-  const wagered = user.totalWagered || 0;
-  if (requiredWager === 0) return 100;
-  const progress = (wagered / requiredWager) * 100;
-  return Math.min(100, Math.max(0, progress));
-}
-
-function getMinWithdrawalAmount(user) {
-  return hasMetWagerRequirement(user) ? WITHDRAWAL_CONFIG.MIN_AFTER_WAGER : WITHDRAWAL_CONFIG.MIN_WITHOUT_WAGER;
-}
-
 // ===== REFERRAL FUNCTIONS =====
 function generateReferralCode(username) {
   const prefix = username.substring(0, 3).toUpperCase();
@@ -828,16 +706,16 @@ function updateReferralUI() {
   const tbody = document.getElementById('referralsBody');
   if (tbody) {
     if (referralData.referrals.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No referrals yet<\/td><\/tr>';
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No referrals yet</td></tr>';
     } else {
       tbody.innerHTML = referralData.referrals.map(r => `
         <tr>
-          <td>${escapeHtml(r.username)}<\/td>
-          <td><span class="status-badge ${r.status === 'active' ? 'approved' : 'pending'}">${r.status === 'active' ? 'Active' : 'Pending'}<\/span><\/td>
-          <td class="amount-positive">${formatNumber(r.depositAmount)}<\/td>
-          <td class="amount-positive">${formatNumber(r.commissionEarned)}<\/td>
-          <td>${new Date(r.joined).toLocaleDateString()}<\/td>
-        <\/tr>
+          <td>${escapeHtml(r.username)}</td>
+          <td><span class="status-badge ${r.status === 'active' ? 'approved' : 'pending'}">${r.status === 'active' ? 'Active' : 'Pending'}</span></td>
+          <td class="amount-positive">${formatNumber(r.depositAmount)}</td>
+          <td class="amount-positive">${formatNumber(r.commissionEarned)}</td>
+          <td>${new Date(r.joined).toLocaleDateString()}</td>
+        </tr>
       `).join('');
     }
   }
@@ -865,16 +743,16 @@ function filterReferrals(filter) {
   if (filter === 'pending') filtered = referralData.referrals.filter(r => r.status !== 'active');
   
   if (filtered.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No referrals found<\/td><\/tr>';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No referrals found</td></tr>';
   } else {
     tbody.innerHTML = filtered.map(r => `
       <tr>
-        <td>${escapeHtml(r.username)}<\/td>
-        <td><span class="status-badge ${r.status === 'active' ? 'approved' : 'pending'}">${r.status === 'active' ? 'Active' : 'Pending'}<\/span><\/td>
-        <td class="amount-positive">${formatNumber(r.depositAmount)}<\/td>
-        <td class="amount-positive">${formatNumber(r.commissionEarned)}<\/td>
-        <td>${new Date(r.joined).toLocaleDateString()}<\/td>
-      <\/tr>
+        <td>${escapeHtml(r.username)}</td>
+        <td><span class="status-badge ${r.status === 'active' ? 'approved' : 'pending'}">${r.status === 'active' ? 'Active' : 'Pending'}</span></td>
+        <td class="amount-positive">${formatNumber(r.depositAmount)}</td>
+        <td class="amount-positive">${formatNumber(r.commissionEarned)}</td>
+        <td>${new Date(r.joined).toLocaleDateString()}</td>
+      </tr>
     `).join('');
   }
   document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
@@ -902,20 +780,82 @@ function claimMilestone(milestone) {
   }
 }
 
-// ===== SHOP FUNCTIONS =====
-function purchaseCoins(amount, coins) {
+// ===== PURCHASE FLOW FUNCTIONS =====
+function openPurchasePage(amount, coins) {
   if (!currentUser || currentUser.isGuest) {
     showPopup('Login Required', 'Please login to purchase');
     openAuthModal('login');
     return;
   }
   
-  const bonusRate = REFERRAL_CONFIG.DEPOSIT_BONUS_RATE;
-  const bonusCoins = Math.floor(coins * bonusRate);
+  currentPurchaseAmount = amount;
+  currentPurchaseCoins = coins;
   
-  showPaymentNumberPage(amount, coins, bonusCoins);
+  const bonusCoins = Math.floor(coins * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE);
+  const totalCoins = coins + bonusCoins;
+  
+  document.getElementById('purchaseAmount').textContent = `₨${amount}`;
+  document.getElementById('purchaseCoins').textContent = `${formatNumber(coins)} Coins`;
+  document.getElementById('purchaseBonus').innerHTML = `+${formatNumber(bonusCoins)} Bonus (2.5%)<br>Total: ${formatNumber(totalCoins)} Coins`;
+  
+  const purchasePage = document.getElementById('purchasePage');
+  if (purchasePage) purchasePage.classList.add('active');
+  if (audio) audio.playClick();
 }
 
+function closePurchasePage() {
+  const purchasePage = document.getElementById('purchasePage');
+  if (purchasePage) purchasePage.classList.remove('active');
+  document.getElementById('purchasePhoneNumber').value = '';
+  document.getElementById('transactionId').value = '';
+}
+
+function closePurchaseConfirmPage() {
+  const confirmPage = document.getElementById('purchaseConfirmPage');
+  if (confirmPage) confirmPage.classList.remove('active');
+}
+
+async function submitPurchaseRequest() {
+  const phoneNumber = document.getElementById('purchasePhoneNumber')?.value.trim();
+  const transactionId = document.getElementById('transactionId')?.value.trim();
+  
+  if (!phoneNumber || phoneNumber.length < 10) {
+    showPopup('Error', 'Please enter a valid phone number');
+    return;
+  }
+  
+  if (!currentUser || currentUser.isGuest) {
+    showPopup('Error', 'Please login first');
+    return;
+  }
+  
+  const bonusCoins = Math.floor(currentPurchaseCoins * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE);
+  const totalCoins = currentPurchaseCoins + bonusCoins;
+  const wageringAmount = currentPurchaseCoins * REFERRAL_CONFIG.WAGER_REQUIREMENT;
+  
+  await database.ref('purchase-requests').push().set({
+    userId: currentUser.id,
+    username: currentUser.username,
+    amount: currentPurchaseAmount,
+    coins: currentPurchaseCoins,
+    bonusCoins: bonusCoins,
+    totalCoins: totalCoins,
+    phoneNumber: phoneNumber,
+    transactionId: transactionId || null,
+    status: 'pending',
+    wageringRequired: wageringAmount,
+    timestamp: new Date().toISOString()
+  });
+  
+  sendNotificationToPlayer(currentUser.id, '💰 Purchase Request Sent', `Your request for ${formatNumber(totalCoins)} coins has been submitted. Admin will verify and add coins to your account.`, '💰');
+  
+  closePurchasePage();
+  
+  const confirmPage = document.getElementById('purchaseConfirmPage');
+  if (confirmPage) confirmPage.classList.add('active');
+}
+
+// ===== SHOP FUNCTIONS =====
 function renderShopGrid() {
   const shopGrid = document.getElementById('shopGrid');
   if (!shopGrid) return;
@@ -926,18 +866,17 @@ function renderShopGrid() {
     { amount: 1000, coins: 1000 },
     { amount: 3000, coins: 3000, featured: true },
     { amount: 5000, coins: 5000 },
-    { amount: 10000, coins: 10000 },
-    { amount: 25000, coins: 25000 },
-    { amount: 50000, coins: 50000, featured: true }
+    { amount: 10000, coins: 10000 }
   ];
   
   shopGrid.innerHTML = shopItems.map(item => `
-    <div class="shop-card ${item.featured ? 'featured' : ''}" onclick="purchaseCoins(${item.amount}, ${item.coins})">
+    <div class="shop-card ${item.featured ? 'featured' : ''}" onclick="openPurchasePage(${item.amount}, ${item.coins})">
       <div class="shop-icon">💰</div>
       <div class="shop-amount">₨${item.amount}</div>
       <div class="shop-coins">${formatNumber(item.coins)} Coins</div>
       <div class="shop-bonus">+${formatNumber(Math.floor(item.coins * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE))} Bonus (${bonusRate}%)</div>
       <div class="shop-total">Total: ${formatNumber(item.coins + Math.floor(item.coins * REFERRAL_CONFIG.DEPOSIT_BONUS_RATE))} Coins</div>
+      <div class="wager-info" style="font-size: 0.6rem; margin-top: 0.3rem;">Wager: ${REFERRAL_CONFIG.WAGER_REQUIREMENT}x deposit</div>
       <button class="shop-btn">BUY NOW</button>
     </div>
   `).join('');
@@ -1006,32 +945,20 @@ function updateWithdrawPopup() {
   }
 }
 
-async function openWithdraw() {
+function openWithdraw() {
   if (!currentUser || currentUser.isGuest) {
     showPopup('Login Required', 'Please login to withdraw');
     openAuthModal('login');
     return;
   }
   
-  const userData = await getUserDataFromFirebase(currentUser.id);
-  const remainingWager = getRemainingWagerRequirement(userData);
-  const wagerMet = hasMetWagerRequirement(userData);
-  const minWithdrawal = getMinWithdrawalAmount(userData);
-  
-  if (!wagerMet) {
-    const progress = getWagerProgress(userData);
-    showPopup('Wager Requirement Not Met', `You need to wager ${formatNumber(remainingWager)} more coins (${Math.floor(progress)}% complete) before you can withdraw. Minimum withdrawal is ${minWithdrawal} coins.`);
+  if (gameState.pendingWagerAmount > 0) {
+    showPopup('Wagering Required', `You need to wager ${formatNumber(gameState.pendingWagerAmount)} more coins before withdrawal. Current wagered: ${formatNumber(gameState.totalWagered)}/${formatNumber(gameState.pendingWagerAmount + gameState.totalWagered)}`);
     return;
   }
   
   const withdrawBalance = document.getElementById('withdrawBalance');
   if (withdrawBalance) withdrawBalance.textContent = formatNumber(gameState.balance);
-  
-  const withdrawPopupText = document.getElementById('withdrawPopupText');
-  if (withdrawPopupText) {
-    withdrawPopupText.innerHTML = `Available Balance: <strong id="withdrawBalance">${formatNumber(gameState.balance)}</strong> coins<br>Minimum withdrawal: ${minWithdrawal} coins`;
-  }
-  
   const withdrawPopup = document.getElementById('withdrawPopup');
   if (withdrawPopup) withdrawPopup.classList.add('active');
   updateWithdrawPopup();
@@ -1045,15 +972,12 @@ function closeWithdrawPopup() {
   if (withdrawAmount) withdrawAmount.value = '';
 }
 
-async function processWithdraw() {
+function processWithdraw() {
   const amount = parseInt(document.getElementById('withdrawAmount')?.value);
   const method = document.getElementById('withdrawMethod')?.value;
   
-  const userData = await getUserDataFromFirebase(currentUser.id);
-  const minWithdrawal = getMinWithdrawalAmount(userData);
-  
-  if (!amount || amount < minWithdrawal) {
-    showPopup('Error', `Minimum withdrawal amount is ${minWithdrawal} coins`);
+  if (!amount || amount < 1000) {
+    showPopup('Error', 'Minimum withdrawal amount is 1000 coins');
     return;
   }
   if (amount > gameState.balance) {
@@ -1066,8 +990,8 @@ async function processWithdraw() {
     return;
   }
   
-  if (!canWithdraw(userData, amount)) {
-    showPopup('Wager Requirement Not Met', 'You have not met the wager requirement for withdrawal.');
+  if (gameState.pendingWagerAmount > 0) {
+    showPopup('Wagering Required', `You need to wager ${formatNumber(gameState.pendingWagerAmount)} more coins before withdrawal.`);
     return;
   }
   
@@ -1081,6 +1005,10 @@ async function processWithdraw() {
     status: 'pending',
     timestamp: new Date().toISOString()
   });
+  
+  gameState.balance -= amount;
+  updateUserDataInFirebase(currentUser.id, { coins: gameState.balance });
+  updateUI();
   
   showPopup('Withdrawal Request', `Your withdrawal request for ${formatNumber(amount)} coins has been submitted. Admin will process it shortly.`);
   closeWithdrawPopup();
@@ -1317,16 +1245,10 @@ function guestLogin() {
     totalBets: 0,
     totalWins: 0,
     totalSpent: 0,
-    totalWagered: 0,
-    totalDeposits: 0,
-    requiredWagered: 0,
     vipLevel: 0
   };
   gameState.balance = 0;
   gameState.totalSpent = 0;
-  gameState.totalWagered = 0;
-  gameState.totalDeposits = 0;
-  gameState.requiredWagered = 0;
   gameState.vipLevel = 0;
   closeAuth();
   updateHeaderForUser();
@@ -1439,10 +1361,9 @@ async function logout() {
   updateHeaderForUser();
   gameState.balance = 0;
   gameState.totalSpent = 0;
-  gameState.totalWagered = 0;
-  gameState.totalDeposits = 0;
-  gameState.requiredWagered = 0;
   gameState.vipLevel = 0;
+  gameState.pendingWagerAmount = 0;
+  gameState.totalWagered = 0;
   updateUI();
   showAuthButtons();
   openAuthModal('login');
@@ -1475,10 +1396,9 @@ async function refreshUserData(silent = false) {
       gameState.totalBets = userData.totalBets || 0;
       gameState.totalWins = userData.totalWins || 0;
       gameState.totalSpent = userData.totalSpent || 0;
-      gameState.totalWagered = userData.totalWagered || 0;
-      gameState.totalDeposits = userData.totalDeposits || 0;
-      gameState.requiredWagered = userData.requiredWagered || 0;
       gameState.vipLevel = userData.vipLevel || 0;
+      gameState.pendingWagerAmount = userData.pendingWagerAmount || 0;
+      gameState.totalWagered = userData.totalWagered || 0;
       updateUI();
       updateVIPUI();
     }
@@ -1521,19 +1441,15 @@ async function handleLoginSubmit(form) {
         id: userCred.user.uid,
         totalBets: userData.totalBets || 0,
         totalWins: userData.totalWins || 0,
-        totalWagered: userData.totalWagered || 0,
-        totalDeposits: userData.totalDeposits || 0,
-        requiredWagered: userData.requiredWagered || 0,
         referredBy: userData.referredBy || null
       };
       gameState.balance = userData.coins || 0;
       gameState.totalBets = userData.totalBets || 0;
       gameState.totalWins = userData.totalWins || 0;
       gameState.totalSpent = userData.totalSpent || 0;
-      gameState.totalWagered = userData.totalWagered || 0;
-      gameState.totalDeposits = userData.totalDeposits || 0;
-      gameState.requiredWagered = userData.requiredWagered || 0;
       gameState.vipLevel = userData.vipLevel || 0;
+      gameState.pendingWagerAmount = userData.pendingWagerAmount || 0;
+      gameState.totalWagered = userData.totalWagered || 0;
       
       const rewardSnap = await database.ref('users/' + currentUser.id + '/rewards').once('value');
       if (rewardSnap.val()) {
@@ -1551,21 +1467,10 @@ async function handleLoginSubmit(form) {
       loadReferralData();
       loadWithdrawalAccounts();
       showPopup('Welcome back!', `Logged in as ${currentUser.username}`);
-    } else {
-      throw new Error('User data not found');
     }
   } catch (error) {
-    console.error("Login error:", error);
     if (errorContainer) {
-      if (error.code === 'auth/user-not-found') {
-        errorContainer.innerHTML = 'No account found with this email';
-      } else if (error.code === 'auth/wrong-password') {
-        errorContainer.innerHTML = 'Incorrect password';
-      } else if (error.code === 'auth/invalid-email') {
-        errorContainer.innerHTML = 'Invalid email format';
-      } else {
-        errorContainer.innerHTML = 'Login failed. Please check your credentials.';
-      }
+      errorContainer.innerHTML = 'Invalid email or password';
       errorContainer.classList.add('active');
     }
   } finally {
@@ -1626,9 +1531,6 @@ async function handleRegisterSubmit(form) {
       totalBets: 0,
       totalWins: 0,
       totalSpent: 0,
-      totalWagered: 0,
-      totalDeposits: 0,
-      requiredWagered: 0,
       vipLevel: 0,
       createdAt: new Date().toISOString(),
       referredBy: null,
@@ -1636,6 +1538,8 @@ async function handleRegisterSubmit(form) {
       referralCount: 0,
       referralEarnings: 0,
       activeReferrals: 0,
+      pendingWagerAmount: 0,
+      totalWagered: 0,
       referralMilestones: { 5: false, 10: false, 25: false, 50: false },
       rewards: {
         lastDailyClaim: null,
@@ -1659,18 +1563,14 @@ async function handleRegisterSubmit(form) {
       id: userCred.user.uid,
       totalBets: 0,
       totalWins: 0,
-      totalWagered: 0,
-      totalDeposits: 0,
-      requiredWagered: 0,
       referredBy: null
     };
     
     gameState.balance = 0;
     gameState.totalSpent = 0;
-    gameState.totalWagered = 0;
-    gameState.totalDeposits = 0;
-    gameState.requiredWagered = 0;
     gameState.vipLevel = 0;
+    gameState.pendingWagerAmount = 0;
+    gameState.totalWagered = 0;
     
     updateHeaderForUser();
     updateUI();
@@ -1688,15 +1588,8 @@ async function handleRegisterSubmit(form) {
       showPopup('Welcome!', `Account created, ${username}! Get 2.5% bonus on every deposit!`);
     }
   } catch (error) {
-    console.error("Registration error:", error);
     if (errorContainer) {
-      if (error.code === 'auth/email-already-in-use') {
-        errorContainer.innerHTML = 'Email already exists. Please use another email or login.';
-      } else if (error.code === 'auth/weak-password') {
-        errorContainer.innerHTML = 'Password is too weak. Use at least 6 characters.';
-      } else {
-        errorContainer.innerHTML = 'Registration failed. Please try again.';
-      }
+      errorContainer.innerHTML = error.code === 'auth/email-already-in-use' ? 'Email already exists' : 'Registration failed';
       errorContainer.classList.add('active');
     }
   } finally {
@@ -1776,13 +1669,16 @@ function shuffleArray(array) {
 
 function generateCards() {
   const cards = [];
+  // Create 11 pairs (22 cards)
   for (let i = 0; i < CONFIG.PAIRS_COUNT; i++) {
     const value = CARD_VALUES[i % CARD_VALUES.length];
     const suit = CARD_SUITS[i % 4];
     cards.push({ value, suit, id: `c${i}a` });
     cards.push({ value, suit, id: `c${i}b` });
   }
+  // Add 4 bombs
   for (let i = 0; i < CONFIG.BOMB_COUNT; i++) cards.push({ isBomb: true, id: `b${i}` });
+  // Add 2 golden cards
   for (let i = 0; i < CONFIG.GOLDEN_COUNT; i++) cards.push({ isGolden: true, id: `g${i}` });
   return shuffleArray(cards);
 }
@@ -1826,7 +1722,7 @@ async function animateShuffle() {
   for (let round = 0; round < 5; round++) {
     cardGrid.classList.add('shuffling');
     if (audio) audio.playShuffle();
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 100));
     cards.forEach(c => c.style.order = Math.floor(Math.random() * cards.length));
   }
   cardGrid.classList.remove('shuffling');
@@ -1879,6 +1775,7 @@ async function startGame() {
     totalSpent: gameState.totalSpent
   });
   
+  await updateWagering(currentUser.id, gameState.currentBet);
   await updateVIPLevel(currentUser.id, gameState.totalSpent);
   updateUI();
   updateVIPUI();
@@ -1983,9 +1880,6 @@ function checkMatch() {
     gameState.multiplier = CONFIG.MULTIPLIERS[gameState.pairsMatched - 1] || 1;
     gameState.currentWin = Math.floor(gameState.currentBet * gameState.multiplier);
     
-    gameState.totalWagered += gameState.currentBet;
-    updateUserDataInFirebase(currentUser.id, { totalWagered: gameState.totalWagered });
-    
     if (audio) audio.playMatch();
     updateUI();
     updateProgress();
@@ -2033,8 +1927,7 @@ function cashout() {
     coins: gameState.balance,
     totalBets: gameState.totalBets,
     totalWins: gameState.totalWins,
-    totalSpent: gameState.totalSpent,
-    totalWagered: gameState.totalWagered
+    totalSpent: gameState.totalSpent
   });
   
   saveGameToHistory(true, gameState.currentBet, gameState.currentWin, gameState.multiplier);
@@ -2064,13 +1957,10 @@ function continuePlaying() {
 
 function handleBomb() {
   gameState.totalBets++;
-  gameState.totalWagered += gameState.currentBet;
-  
   updateUserDataInFirebase(currentUser.id, {
     coins: gameState.balance,
     totalBets: gameState.totalBets,
-    totalSpent: gameState.totalSpent,
-    totalWagered: gameState.totalWagered
+    totalSpent: gameState.totalSpent
   });
   saveGameToHistory(false, gameState.currentBet, 0, 1);
   if (audio) audio.playBomb();
@@ -2092,8 +1982,7 @@ function handleMaxWin() {
     coins: gameState.balance,
     totalBets: gameState.totalBets,
     totalWins: gameState.totalWins,
-    totalSpent: gameState.totalSpent,
-    totalWagered: gameState.totalWagered
+    totalSpent: gameState.totalSpent
   });
   saveGameToHistory(true, gameState.currentBet, gameState.currentWin, CONFIG.MULTIPLIERS[CONFIG.MULTIPLIERS.length - 1]);
   if (audio) audio.playWin();
@@ -2379,62 +2268,6 @@ class AudioSystem {
 
 const audio = new AudioSystem();
 
-// ===== CHECK FOR EXISTING SESSION ON PAGE LOAD =====
-async function checkExistingSession() {
-  return new Promise((resolve) => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      unsubscribe();
-      if (user) {
-        console.log("🔄 Restoring existing session for:", user.uid);
-        try {
-          const userData = await getUserDataFromFirebase(user.uid);
-          if (userData) {
-            currentUser = {
-              username: userData.username,
-              avatar: userData.avatar || '👤',
-              isGuest: false,
-              id: user.uid,
-              totalBets: userData.totalBets || 0,
-              totalWins: userData.totalWins || 0,
-              totalWagered: userData.totalWagered || 0,
-              totalDeposits: userData.totalDeposits || 0,
-              requiredWagered: userData.requiredWagered || 0,
-              referredBy: userData.referredBy || null
-            };
-            gameState.balance = userData.coins || 0;
-            gameState.totalBets = userData.totalBets || 0;
-            gameState.totalWins = userData.totalWins || 0;
-            gameState.totalSpent = userData.totalSpent || 0;
-            gameState.totalWagered = userData.totalWagered || 0;
-            gameState.totalDeposits = userData.totalDeposits || 0;
-            gameState.requiredWagered = userData.requiredWagered || 0;
-            gameState.vipLevel = userData.vipLevel || 0;
-            
-            const rewardSnap = await database.ref('users/' + currentUser.id + '/rewards').once('value');
-            if (rewardSnap.val()) {
-              rewardState = { ...rewardState, ...rewardSnap.val() };
-            }
-            
-            updateHeaderForUser();
-            updateUI();
-            updateVIPUI();
-            hideAuthButtons();
-            startAutoRefresh();
-            loadNotifications();
-            loadSupportTickets();
-            loadReferralData();
-            loadWithdrawalAccounts();
-            console.log("✅ Session restored successfully");
-          }
-        } catch (error) {
-          console.error("Error restoring session:", error);
-        }
-      }
-      resolve();
-    });
-  });
-}
-
 // ===== INITIALIZATION =====
 function createParticles() {
   const container = document.getElementById('particles');
@@ -2449,11 +2282,9 @@ function createParticles() {
   }
 }
 
-async function initApp() {
+function initApp() {
   createParticles();
   startLeaderboardRotation();
-  
-  await checkExistingSession();
   
   document.querySelectorAll('.bet-option').forEach(btn => {
     btn.addEventListener('click', () => selectBet(parseInt(btn.dataset.bet)));
@@ -2488,7 +2319,7 @@ async function initApp() {
     }, 1000);
   }
   
-  console.log("✅ Royal Match ready with working login and wager system!");
+  console.log("✅ CASINO SUFFLE 786 ready with 28 cards (11 pairs, 4 bombs, 2 golden)!");
 }
 
 // Make all functions globally available
@@ -2524,7 +2355,10 @@ window.filterReferrals = filterReferrals;
 window.claimMilestone = claimMilestone;
 window.openShop = openShop;
 window.closeShop = closeShop;
-window.purchaseCoins = purchaseCoins;
+window.openPurchasePage = openPurchasePage;
+window.closePurchasePage = closePurchasePage;
+window.closePurchaseConfirmPage = closePurchaseConfirmPage;
+window.submitPurchaseRequest = submitPurchaseRequest;
 window.openWithdraw = openWithdraw;
 window.closeWithdrawPopup = closeWithdrawPopup;
 window.processWithdraw = processWithdraw;
@@ -2554,11 +2388,6 @@ window.closeDailyRewards = closeDailyRewards;
 window.claimDailyReward = claimDailyReward;
 window.claimWeeklyReward = claimWeeklyReward;
 window.claimMonthlyReward = claimMonthlyReward;
-window.submitPaymentRequest = submitPaymentRequest;
-window.closePaymentNumberPage = closePaymentNumberPage;
-window.closePaymentInfoPage = closePaymentInfoPage;
-window.goBackToShop = goBackToShop;
-window.copyJazzCashNumber = copyJazzCashNumber;
 
 document.addEventListener('DOMContentLoaded', () => {
   initApp();

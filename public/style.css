@@ -217,6 +217,140 @@ body.theme-crimson-velvet {
 /* Account Display */
 .account-display { background: rgba(0,0,0,0.3); border-radius: 8px; padding: 0.5rem; font-size: 0.85rem; color: #10b981; word-break: break-all; }
 
+/* Purchase Page */
+.purchase-page {
+  position: fixed;
+  inset: 0;
+  background: linear-gradient(180deg, #022c22 0%, #000000 100%);
+  z-index: 8000;
+  display: none;
+  flex-direction: column;
+  overflow-y: auto;
+}
+.purchase-page.active { display: flex; }
+.purchase-header {
+  background: linear-gradient(180deg, rgba(6,78,59,0.95), rgba(2,44,34,0.98));
+  border-bottom: 2px solid #d4af37;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.purchase-back-btn {
+  background: rgba(212,175,55,0.2);
+  border: 1px solid #d4af37;
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+  color: #ffd700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+.purchase-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  color: #ffd700;
+  flex: 1;
+  text-align: center;
+  margin-right: 3rem;
+}
+.purchase-content {
+  flex: 1;
+  padding: 2rem 1.5rem;
+  max-width: 500px;
+  margin: 0 auto;
+  width: 100%;
+}
+.purchase-amount-card {
+  background: linear-gradient(145deg, rgba(6,78,59,0.8), rgba(2,44,34,0.9));
+  border: 2px solid #d4af37;
+  border-radius: 20px;
+  padding: 1.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.purchase-amount {
+  font-family: 'Playfair Display', serif;
+  font-size: 2rem;
+  color: #ffd700;
+  font-weight: 900;
+}
+.purchase-coins {
+  color: #10b981;
+  font-size: 1rem;
+  margin-top: 0.5rem;
+}
+.payment-number-card {
+  background: linear-gradient(145deg, #1a1a1a, #0d0d0d);
+  border: 2px solid #d4af37;
+  border-radius: 16px;
+  padding: 1.5rem;
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.payment-number {
+  font-size: 1.8rem;
+  font-weight: bold;
+  color: #ffd700;
+  letter-spacing: 2px;
+  font-family: monospace;
+  margin: 0.5rem 0;
+}
+.payment-number-text {
+  color: #888;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+.payment-note {
+  background: rgba(16,185,129,0.1);
+  padding: 0.8rem;
+  border-radius: 10px;
+  margin-top: 0.8rem;
+  font-size: 0.8rem;
+  color: #10b981;
+}
+.submit-form {
+  background: linear-gradient(145deg, rgba(6,78,59,0.6), rgba(2,44,34,0.7));
+  border: 1px solid rgba(212,175,55,0.3);
+  border-radius: 16px;
+  padding: 1.5rem;
+}
+.submit-form h3 {
+  color: #ffd700;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  text-align: center;
+}
+.submit-btn {
+  width: 100%;
+  padding: 1rem;
+  background: linear-gradient(145deg, #d4af37, #ffd700);
+  border: none;
+  border-radius: 12px;
+  color: #000;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: all 0.3s;
+}
+.submit-btn:active { transform: scale(0.98); }
+.wager-info {
+  background: rgba(212,175,55,0.1);
+  border: 1px solid #ffd700;
+  border-radius: 12px;
+  padding: 0.8rem;
+  margin-top: 1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #ffd700;
+}
+
 /* Withdrawal Loading Screen */
 .withdrawal-loading { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); z-index: 7000; display: none; align-items: center; justify-content: center; }
 .withdrawal-loading.active { display: flex; }
@@ -346,26 +480,6 @@ body.theme-crimson-velvet {
 .shop-total { color: #fff; font-size: 0.7rem; margin: 0.2rem 0; }
 .shop-badge { position: absolute; top: -10px; right: -10px; background: #ff4444; color: white; padding: 0.2rem 0.5rem; border-radius: 20px; font-size: 0.6rem; }
 .shop-btn { width: 100%; padding: 0.6rem; background: linear-gradient(145deg, #d4af37, #ffd700); border: none; border-radius: 8px; color: #000; font-weight: 700; cursor: pointer; margin-top: 0.5rem; text-transform: uppercase; font-size: 0.8rem; }
-.payment-methods-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; margin-top: 2rem; max-width: 300px; margin-left: auto; margin-right: auto; }
-.payment-card { background: linear-gradient(145deg, rgba(6,78,59,0.8), rgba(2,44,34,0.9)); border: 2px solid rgba(212,175,55,0.3); border-radius: 16px; padding: 1.2rem; text-align: center; cursor: pointer; transition: all 0.3s; }
-.payment-card:active { transform: translateY(-5px); border-color: #ffd700; box-shadow: 0 10px 30px rgba(212,175,55,0.3); }
-.payment-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-.payment-name { font-family: 'Playfair Display', serif; color: #ffd700; font-size: 1rem; font-weight: 700; margin-bottom: 0.3rem; }
-.payment-desc { color: #888; font-size: 0.75rem; }
-
-/* Payment Pages - NEW ADDITIONS ONLY */
-.payment-container, .payment-info-container { max-width: 400px; margin: 0 auto; padding: 1rem; }
-.payment-amount-card { background: linear-gradient(145deg, rgba(16,185,129,0.2), rgba(2,44,34,0.4)); border: 1px solid #10b981; border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem; text-align: center; }
-.payment-amount-card-content h3 { color: #ffd700; margin-bottom: 1rem; }
-.payment-amount-card-content p { margin: 0.5rem 0; color: #ccc; }
-.qr-placeholder { text-align: center; margin-bottom: 1.5rem; }
-.qr-image-placeholder { width: 200px; height: 200px; background: linear-gradient(145deg, #1a1f2e, #0f1424); border: 2px solid #d4af37; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
-.payment-details-card { background: linear-gradient(145deg, rgba(6,78,59,0.8), rgba(2,44,34,0.9)); border: 1px solid rgba(212,175,55,0.3); border-radius: 16px; padding: 1.5rem; text-align: center; }
-.jazzcash-number-large { font-size: 2rem; font-weight: bold; color: #ffd700; font-family: monospace; letter-spacing: 2px; margin: 1rem 0; padding: 0.5rem; background: rgba(0,0,0,0.3); border-radius: 12px; display: flex; align-items: center; justify-content: center; gap: 1rem; flex-wrap: wrap; }
-.copy-number-btn { background: rgba(212,175,55,0.2); border: 1px solid #ffd700; border-radius: 8px; padding: 0.3rem 0.8rem; color: #ffd700; cursor: pointer; font-size: 0.8rem; transition: all 0.2s; }
-.copy-number-btn:active { background: #ffd700; color: #000; }
-.payment-note { color: #ff6b6b; font-size: 0.8rem; margin: 1rem 0; }
-.payment-amount-info { background: rgba(0,0,0,0.3); padding: 0.8rem; border-radius: 8px; margin: 1rem 0; color: #10b981; }
 
 /* Referral System */
 .referral-container { max-width: 800px; margin: 0 auto; }
@@ -535,7 +649,7 @@ td { padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); color: #c
 .multiplier-display { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.2rem; margin-top: 0.3rem; max-height: 70px; overflow-y: auto; }
 .multiplier-item { background: #1a1a1a; border: 1px solid #333; border-radius: 4px; padding: 0.15rem 0.3rem; color: #666; font-size: 0.45rem; font-weight: 600; transition: all 0.3s; }
 
-/* Card Grid */
+/* Card Grid - 7 columns for 28 cards (4 rows of 7) */
 .card-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; perspective: 1000px; margin-bottom: 0.5rem; }
 @media (max-width: 480px) { .card-grid { gap: 2px; } }
 .card-grid.shuffling .card { animation: shuffle-card 0.12s ease-in-out; }
@@ -621,5 +735,11 @@ td { padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); color: #c
 .theme-btn:active, .theme-btn.active { border-color: #ffd700; background: rgba(212,175,55,0.2); }
 .theme-preview { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #fff; }
 .change-theme-btn { width: 100%; padding: 0.75rem; background: linear-gradient(145deg, #d4af37, #ffd700); border: none; border-radius: 10px; color: #000; font-weight: 700; cursor: pointer; margin-top: 1rem; }
+
+/* Fast click optimization */
+button, .btn, .nav-item, .game-tile, .shop-card, .offer-card, .auth-btn, .guest-btn, .back-btn, .claim-btn, .mission-btn, .support-btn, .copy-btn, .filter-btn, .milestone-btn, .popup-close, .popup-btn, .modal-close, .change-theme-btn, .theme-btn, .header-btn, .play-btn, .bet-option, .custom-bet-btn, .action-btn, .card, .profile-avatar, .close-auth, .auth-link a, .nav-tab, .refresh-btn, .search-btn, .btn-approve, .btn-reject, .btn-add, .btn-remove, .btn-wager, .btn-reply, .submit-btn, .purchase-back-btn {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
 
 .hidden { display: none !important; }
