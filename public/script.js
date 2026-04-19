@@ -1,5 +1,5 @@
 // ===== ROYAL MATCH - COMPLETE WITH VIP AND DAILY REWARDS =====
-console.log("🎮 CASINO SHUFFLE 786 - Loading...");
+console.log("🎮 ROYAL MATCH 1 - Loading...");
 
 // ===== FIREBASE CONFIG =====
 const firebaseConfig = {
@@ -2319,7 +2319,7 @@ function initApp() {
     }, 1000);
   }
   
-  console.log("✅ CASINO SUFFLE 786 ready with 28 cards (11 pairs, 4 bombs, 2 golden)!");
+  console.log("✅ ROYAL MATCH 1 ready with 28 cards (11 pairs, 4 bombs, 2 golden)!");
 }
 
 // Make all functions globally available
