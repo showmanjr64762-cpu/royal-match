@@ -26,9 +26,10 @@ let notifications = [];
 let currentPurchaseAmount = 0;
 let currentPurchaseCoins = 0;
 let pendingReferralCode = null;
+let rewardCountdownInterval = null;
 
 // APK Download Link
-const APK_DOWNLOAD_LINK = 'https://drive.google.com/file/d/1gk2ao0PzeN5QGkO0z_gUcQkUfivXl7uQ/view?usp=drivesdk';
+const APK_DOWNLOAD_LINK = 'https://drive.google.com/file/d/15CO3hVD4QYxroAl9yz3QC9GcaFmrYzBn/view?usp=drivesdk';
 
 // ===== VIP SYSTEM CONFIGURATION =====
 const VIP_CONFIG = {
@@ -76,6 +77,14 @@ let rewardState = {
   lastDailyClaimDate: null,
   lastWeeklyClaimDate: null,
   lastMonthlyClaimDate: null
+};
+
+// ===== MISSIONS STATE =====
+let missionsState = {
+  dailyLogin: { completed: false, claimed: false, progress: 0, target: 1 },
+  firstDeposit: { completed: false, claimed: false, progress: 0, target: 1 },
+  gamesPlayed: { completed: false, claimed: false, progress: 0, target: 10 },
+  bigWin: { completed: false, claimed: false, progress: 0, target: 5 }
 };
 
 // ===== REFERRAL DATA =====
@@ -231,14 +240,29 @@ async function handleLoginSubmit(form) {
         rewardState = { ...rewardState, ...userData.rewards };
       }
       
+      if (userData.missions) {
+        missionsState = { ...missionsState, ...userData.missions };
+      }
+      
+      // Check daily login mission
+      if (!missionsState.dailyLogin.completed) {
+        missionsState.dailyLogin.completed = true;
+        missionsState.dailyLogin.progress = 1;
+        updateMissionsUI();
+        saveUserDataToFirebase();
+        showPopup('Mission Update!', 'Daily Login mission completed! Check Missions tab to claim reward!');
+      }
+      
       updateHeaderForUser();
       updateUI();
       updateRewardUI();
+      updateMissionsUI();
       hideAuthButtons();
       closeAuth();
       startAutoRefresh();
       loadReferralData();
       loadWithdrawalAccounts();
+      startRewardCountdown();
       showPopup('Welcome back!', 'Logged in as ' + currentUser.username);
     }
   } catch (error) {
@@ -334,6 +358,12 @@ async function handleRegisterSubmit(form) {
         lastDailyClaimDate: null,
         lastWeeklyClaimDate: null,
         lastMonthlyClaimDate: null
+      },
+      missions: {
+        dailyLogin: { completed: false, claimed: false, progress: 0, target: 1 },
+        firstDeposit: { completed: false, claimed: false, progress: 0, target: 1 },
+        gamesPlayed: { completed: false, claimed: false, progress: 0, target: 10 },
+        bigWin: { completed: false, claimed: false, progress: 0, target: 5 }
       }
     };
     
@@ -367,6 +397,7 @@ async function handleRegisterSubmit(form) {
     startAutoRefresh();
     loadReferralData();
     loadWithdrawalAccounts();
+    startRewardCountdown();
     
     if (referralCode) {
       showPopup('Welcome!', 'Account created with referral code ' + referralCode + '! You start with 0 coins. Purchase coins to start playing!');
@@ -420,6 +451,7 @@ async function logout() {
     await auth.signOut();
   }
   stopAutoRefresh();
+  if (rewardCountdownInterval) clearInterval(rewardCountdownInterval);
   currentUser = null;
   gameState.balance = 0;
   gameState.totalBets = 0;
@@ -437,7 +469,7 @@ async function logout() {
   showAuthButtons();
   resetGame();
   showPopup('Logged out', 'You have been logged out');
-  openAuthModal('login');
+  openAuthModal();
 }
 
 // ===== FIREBASE DATABASE FUNCTIONS =====
@@ -462,7 +494,8 @@ async function saveUserDataToFirebase() {
     vipLevel: gameState.vipLevel,
     firstWagerProgress: gameState.firstWagerProgress,
     hasCompletedFirstWager: gameState.hasCompletedFirstWager,
-    rewards: rewardState
+    rewards: rewardState,
+    missions: missionsState
   };
   
   try {
@@ -509,8 +542,12 @@ async function refreshUserData() {
       if (userData.rewards) {
         rewardState = { ...rewardState, ...userData.rewards };
       }
+      if (userData.missions) {
+        missionsState = { ...missionsState, ...userData.missions };
+      }
       updateUI();
       updateRewardUI();
+      updateMissionsUI();
     }
   } catch (error) {
     console.error("Refresh error:", error);
@@ -580,7 +617,6 @@ async function loadReferralData() {
       referralData.totalReferrals = userData.referralCount || 0;
       referralData.totalEarnings = userData.referralEarnings || 0;
       
-      // Load referrals list
       var referralsSnap = await database.ref('referrals').orderByChild('referrerId').equalTo(currentUser.id).once('value');
       var referrals = referralsSnap.val();
       if (referrals) {
@@ -661,7 +697,7 @@ function filterReferrals(filter) {
   var referralsBody = document.getElementById('referralsBody');
   if (referralsBody) {
     if (filtered.length === 0) {
-      referralsBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No referrals found</td></tr>';
+      referralsBody.innerHTML = '<tr><td colspan="5" style="text-align:center;">No referrals found</td><tr>';
     } else {
       var referralsHtml = '';
       for (var i = 0; i < filtered.length; i++) {
@@ -690,7 +726,7 @@ function escapeHtml(text) {
 async function saveWithdrawalAccounts() {
   if (!currentUser || currentUser.isGuest) {
     showPopup('Error', 'Please login to save accounts');
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
   
@@ -721,7 +757,7 @@ async function loadWithdrawalAccounts() {
 function openWithdraw() {
   if (!currentUser) {
     showPopup('Login Required', 'Please login to withdraw');
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
   
@@ -754,10 +790,10 @@ function updateWithdrawPopup() {
   if (method && accountDisplay) {
     if (savedAccounts[method]) {
       accountDisplay.innerHTML = 'Account: ' + savedAccounts[method];
-      accountDisplay.style.color = '#10b981';
+      accountDisplay.style.color = '#2ecc71';
     } else {
       accountDisplay.innerHTML = 'No account saved. Please add in profile.';
-      accountDisplay.style.color = '#ff6b6b';
+      accountDisplay.style.color = '#e74c3c';
     }
   }
 }
@@ -836,7 +872,7 @@ function closeShop() {
 function openPurchasePage(amount, coins) {
   if (!currentUser) {
     showPopup('Login Required', 'Please login to purchase');
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
   
@@ -903,6 +939,15 @@ function submitPurchaseRequest() {
     timestamp: new Date().toISOString()
   });
   
+  // Update first deposit mission
+  if (!missionsState.firstDeposit.completed) {
+    missionsState.firstDeposit.completed = true;
+    missionsState.firstDeposit.progress = 1;
+    updateMissionsUI();
+    saveUserDataToFirebase();
+    showPopup('Mission Update!', 'First Deposit mission completed! Check Missions tab to claim reward!');
+  }
+  
   showPopup('Request Sent!', 'Your purchase request for ' + formatNumber(totalCoins) + ' coins has been submitted. Admin will verify and add coins to your account within 24 hours.');
   closePurchasePage();
 }
@@ -915,7 +960,6 @@ function canClaimDaily() {
   var lastClaim = new Date(rewardState.lastDailyClaim);
   var today = new Date();
   
-  // Check if it's a new day
   if (lastClaim.getDate() !== today.getDate() || 
       lastClaim.getMonth() !== today.getMonth() || 
       lastClaim.getFullYear() !== today.getFullYear()) {
@@ -958,7 +1002,8 @@ function getTimeUntilNextDaily() {
   var diff = nextClaim - now;
   var hours = Math.floor(diff / (1000 * 60 * 60));
   var minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-  return hours + "h " + minutes + "m remaining";
+  var seconds = Math.floor((diff % (1000 * 60)) / 1000);
+  return hours + "h " + minutes + "m " + seconds + "s";
 }
 
 function getTimeUntilNextWeekly() {
@@ -974,7 +1019,7 @@ function getTimeUntilNextWeekly() {
   var diff = nextClaim - now;
   var days = Math.floor(diff / (1000 * 60 * 60 * 24));
   var hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-  return days + "d " + hours + "h remaining";
+  return days + "d " + hours + "h";
 }
 
 function getTimeUntilNextMonthly() {
@@ -989,7 +1034,14 @@ function getTimeUntilNextMonthly() {
   
   var diff = nextClaim - now;
   var days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  return days + " days remaining";
+  return days + " days";
+}
+
+function startRewardCountdown() {
+  if (rewardCountdownInterval) clearInterval(rewardCountdownInterval);
+  rewardCountdownInterval = setInterval(function() {
+    updateRewardUI();
+  }, 1000);
 }
 
 function updateRewardUI() {
@@ -1013,16 +1065,18 @@ function updateRewardUI() {
     if (canClaimDaily()) {
       dailyBtn.disabled = false;
       dailyBtn.style.opacity = '1';
+      dailyBtn.style.cursor = 'pointer';
       if (dailyCooldown) {
         dailyCooldown.textContent = 'Ready to claim!';
-        dailyCooldown.style.color = '#10b981';
+        dailyCooldown.style.color = '#2ecc71';
       }
     } else {
       dailyBtn.disabled = true;
       dailyBtn.style.opacity = '0.5';
+      dailyBtn.style.cursor = 'not-allowed';
       if (dailyCooldown) {
         dailyCooldown.textContent = getTimeUntilNextDaily();
-        dailyCooldown.style.color = '#ff6b6b';
+        dailyCooldown.style.color = '#e74c3c';
       }
     }
   }
@@ -1031,16 +1085,18 @@ function updateRewardUI() {
     if (canClaimWeekly()) {
       weeklyBtn.disabled = false;
       weeklyBtn.style.opacity = '1';
+      weeklyBtn.style.cursor = 'pointer';
       if (weeklyCooldown) {
         weeklyCooldown.textContent = 'Ready to claim!';
-        weeklyCooldown.style.color = '#10b981';
+        weeklyCooldown.style.color = '#2ecc71';
       }
     } else {
       weeklyBtn.disabled = true;
       weeklyBtn.style.opacity = '0.5';
+      weeklyBtn.style.cursor = 'not-allowed';
       if (weeklyCooldown) {
         weeklyCooldown.textContent = getTimeUntilNextWeekly();
-        weeklyCooldown.style.color = '#ff6b6b';
+        weeklyCooldown.style.color = '#e74c3c';
       }
     }
   }
@@ -1049,16 +1105,18 @@ function updateRewardUI() {
     if (canClaimMonthly()) {
       monthlyBtn.disabled = false;
       monthlyBtn.style.opacity = '1';
+      monthlyBtn.style.cursor = 'pointer';
       if (monthlyCooldown) {
         monthlyCooldown.textContent = 'Ready to claim!';
-        monthlyCooldown.style.color = '#10b981';
+        monthlyCooldown.style.color = '#2ecc71';
       }
     } else {
       monthlyBtn.disabled = true;
       monthlyBtn.style.opacity = '0.5';
+      monthlyBtn.style.cursor = 'not-allowed';
       if (monthlyCooldown) {
         monthlyCooldown.textContent = getTimeUntilNextMonthly();
-        monthlyCooldown.style.color = '#ff6b6b';
+        monthlyCooldown.style.color = '#e74c3c';
       }
     }
   }
@@ -1067,7 +1125,7 @@ function updateRewardUI() {
 async function claimDailyReward() {
   if (!currentUser) {
     showPopup('Login Required', 'Please login to claim rewards');
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
   
@@ -1082,14 +1140,7 @@ async function claimDailyReward() {
   gameState.balance += reward;
   rewardState.lastDailyClaim = new Date().toISOString();
   rewardState.lastDailyClaimDate = new Date().toDateString();
-  
-  // Update streak
-  var today = new Date().toDateString();
-  if (rewardState.lastDailyClaimDate === today) {
-    rewardState.dailyStreak = (rewardState.dailyStreak || 0) + 1;
-  } else {
-    rewardState.dailyStreak = 1;
-  }
+  rewardState.dailyStreak = (rewardState.dailyStreak || 0) + 1;
   
   updateUI();
   await saveUserDataToFirebase();
@@ -1101,7 +1152,7 @@ async function claimDailyReward() {
 async function claimWeeklyReward() {
   if (!currentUser) {
     showPopup('Login Required', 'Please login to claim rewards');
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
   
@@ -1129,7 +1180,7 @@ async function claimWeeklyReward() {
 async function claimMonthlyReward() {
   if (!currentUser) {
     showPopup('Login Required', 'Please login to claim rewards');
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
   
@@ -1151,6 +1202,111 @@ async function claimMonthlyReward() {
   updateRewardUI();
   
   showPopup('Monthly Reward Claimed!', 'You received ' + reward + ' coins!');
+}
+
+// ===== MISSIONS FUNCTIONS =====
+function updateMissionsUI() {
+  var missionsContent = document.getElementById('missionsContent');
+  if (!missionsContent) return;
+  
+  var missions = [
+    { id: 'dailyLogin', title: 'Daily Login', desc: 'Login daily to claim reward', reward: 10, icon: '🎁' },
+    { id: 'firstDeposit', title: 'First Deposit', desc: 'Make your first deposit', reward: 50, icon: '💰' },
+    { id: 'gamesPlayed', title: 'Betting Enthusiast', desc: 'Place ' + missionsState.gamesPlayed.target + ' bets', reward: 100, icon: '🎮', progress: missionsState.gamesPlayed.progress, target: missionsState.gamesPlayed.target },
+    { id: 'bigWin', title: 'Winner\'s Circle', desc: 'Win ' + missionsState.bigWin.target + ' games', reward: 200, icon: '🏆', progress: missionsState.bigWin.progress, target: missionsState.bigWin.target }
+  ];
+  
+  var html = '';
+  for (var i = 0; i < missions.length; i++) {
+    var mission = missions[i];
+    var missionData = missionsState[mission.id];
+    var isCompleted = missionData && missionData.completed;
+    var isClaimed = missionData && missionData.claimed;
+    var progressText = '';
+    
+    if (mission.progress !== undefined) {
+      var percent = (mission.progress / mission.target * 100);
+      progressText = '<div class="mission-progress"><div class="mission-progress-bar" style="width: ' + percent + '%"></div><span>' + mission.progress + '/' + mission.target + '</span></div>';
+    }
+    
+    var buttonHtml = '';
+    if (isClaimed) {
+      buttonHtml = '<button class="mission-btn claimed" disabled>✓ Claimed</button>';
+    } else if (isCompleted) {
+      buttonHtml = '<button class="mission-btn available" onclick="claimMissionReward(\'' + mission.id + '\', ' + mission.reward + ')">🎁 Claim Reward</button>';
+    } else {
+      buttonHtml = '<button class="mission-btn locked" disabled>🔒 Locked</button>';
+    }
+    
+    html += '<div class="mission-card">' +
+      '<div class="mission-header"><span class="mission-icon">' + mission.icon + '</span><span class="mission-title">' + mission.title + '</span></div>' +
+      '<div class="mission-desc">' + mission.desc + '</div>' +
+      progressText +
+      '<div class="mission-reward">🎁 ' + mission.reward + ' Coins</div>' +
+      buttonHtml +
+    '</div>';
+  }
+  missionsContent.innerHTML = html;
+}
+
+async function claimMissionReward(missionId, rewardAmount) {
+  console.log("Claiming mission reward:", missionId, rewardAmount);
+  
+  if (!currentUser) {
+    showPopup('Login Required', 'Please login to claim rewards');
+    openAuthModal();
+    return;
+  }
+  
+  if (!missionsState[missionId]) {
+    showPopup('Error', 'Mission not found!');
+    return;
+  }
+  
+  if (!missionsState[missionId].completed) {
+    showPopup('Mission Not Completed', 'Complete the mission first to claim reward!');
+    return;
+  }
+  
+  if (missionsState[missionId].claimed) {
+    showPopup('Already Claimed', 'You have already claimed this reward!');
+    return;
+  }
+  
+  gameState.balance += rewardAmount;
+  missionsState[missionId].claimed = true;
+  
+  updateUI();
+  await saveUserDataToFirebase();
+  updateMissionsUI();
+  
+  showPopup('Mission Reward Claimed!', 'You received ' + rewardAmount + ' coins for completing the mission!');
+}
+
+function checkAndUpdateMissions() {
+  var updated = false;
+  
+  // Check games played mission
+  if (!missionsState.gamesPlayed.completed && gameState.totalBets >= missionsState.gamesPlayed.target) {
+    missionsState.gamesPlayed.completed = true;
+    updated = true;
+  } else if (!missionsState.gamesPlayed.completed) {
+    missionsState.gamesPlayed.progress = gameState.totalBets;
+  }
+  
+  // Check big win mission
+  if (!missionsState.bigWin.completed && gameState.totalWins >= missionsState.bigWin.target) {
+    missionsState.bigWin.completed = true;
+    updated = true;
+  } else if (!missionsState.bigWin.completed) {
+    missionsState.bigWin.progress = gameState.totalWins;
+  }
+  
+  if (updated) {
+    updateMissionsUI();
+    saveUserDataToFirebase();
+    showPopup('Mission Update!', 'A mission has been completed! Check Missions tab to claim your reward!');
+  }
 }
 
 // ===== UI FUNCTIONS =====
@@ -1207,7 +1363,7 @@ function updateUI() {
     progressBar.style.width = Math.min(100, percent) + '%';
     if (gameState.hasCompletedFirstWager) {
       progressText.innerHTML = '✅ First withdrawal unlocked!';
-      progressText.style.color = '#10b981';
+      progressText.style.color = '#2ecc71';
     } else {
       progressText.innerHTML = formatNumber(gameState.firstWagerProgress) + ' / 5,000 wagered';
     }
@@ -1248,40 +1404,23 @@ function showAuthButtons() {
   if (authButtons) authButtons.style.display = 'flex';
 }
 
-function openAuthModal(tab) {
+function openAuthModal() {
   var overlay = document.getElementById('authOverlay');
-  if (overlay) overlay.classList.add('active');
-  switchAuthTab(tab);
-}
-
-function switchAuthTab(tab) {
-  var authTitle = document.getElementById('authTitle');
-  var loginForm = document.getElementById('loginForm');
-  var registerForm = document.getElementById('registerForm');
-  
-  if (authTitle) authTitle.textContent = tab === 'login' ? 'Login' : 'Register';
-  if (loginForm) loginForm.classList.toggle('active', tab === 'login');
-  if (registerForm) registerForm.classList.toggle('active', tab === 'register');
-  
-  if (tab === 'register') {
-    var refCode = getReferralCodeFromURL();
-    if (refCode) {
-      var referralInput = document.querySelector('#registerForm input[name="referralCode"]');
-      if (referralInput) {
-        referralInput.value = refCode;
-      }
-    }
+  if (overlay) {
+    overlay.classList.add('active');
   }
 }
 
 function closeAuth() {
   var overlay = document.getElementById('authOverlay');
-  if (overlay) overlay.classList.remove('active');
+  if (overlay) {
+    overlay.classList.remove('active');
+  }
 }
 
 function openProfile() {
   if (!currentUser) {
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
   var profileModal = document.getElementById('profileModal');
@@ -1380,7 +1519,7 @@ function sendSupportMessage() {
   }
   if (!currentUser) {
     showPopup('Error', 'Please login to send support messages');
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
   
@@ -1425,7 +1564,7 @@ function closeOffers() {
 function openMissions() {
   var missionsSection = document.getElementById('missionsSection');
   if (missionsSection) missionsSection.classList.add('active');
-  renderMissions();
+  updateMissionsUI();
   closeOffers();
 }
 
@@ -1433,30 +1572,6 @@ function closeMissions() {
   var missionsSection = document.getElementById('missionsSection');
   if (missionsSection) missionsSection.classList.remove('active');
   openOffers();
-}
-
-function renderMissions() {
-  var container = document.getElementById('missionsContent');
-  if (!container) return;
-  
-  var missions = [
-    { id: 'dailyLogin', title: 'Daily Login', desc: 'Login daily to claim reward', reward: '10 Coins', completed: false },
-    { id: 'firstDeposit', title: 'First Deposit', desc: 'Make your first deposit', reward: '50 Coins', completed: gameState.totalSpent > 0 },
-    { id: 'gamesPlayed', title: 'Betting Enthusiast', desc: 'Place 10 bets', reward: '100 Coins', completed: gameState.totalBets >= 10 },
-    { id: 'bigWin', title: 'Winner\'s Circle', desc: 'Win 5 games', reward: '200 Coins', completed: gameState.totalWins >= 5 }
-  ];
-  
-  var html = '';
-  for (var i = 0; i < missions.length; i++) {
-    var mission = missions[i];
-    html += '<div class="mission-card">' +
-      '<div class="mission-header"><span class="mission-title">' + mission.title + '</span></div>' +
-      '<div class="mission-desc">' + mission.desc + '</div>' +
-      '<div class="mission-reward">🎁 ' + mission.reward + '</div>' +
-      '<button class="mission-btn" ' + (mission.completed ? 'disabled' : '') + ' onclick="showPopup(\'Mission\', \'Complete this mission to claim reward!\')">' + (mission.completed ? 'Completed' : 'Claim') + '</button>' +
-    '</div>';
-  }
-  container.innerHTML = html;
 }
 
 function openSupport() {
@@ -1599,9 +1714,11 @@ function renderLeaderboard() {
 function enterGame() {
   if (!currentUser) {
     showPopup('Login Required', 'Please login to play');
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
+  
+  resetGame();
   
   var gameView = document.getElementById('gameView');
   if (gameView) {
@@ -1612,11 +1729,12 @@ function enterGame() {
 }
 
 function exitGame() {
+  resetGame();
+  
   var gameView = document.getElementById('gameView');
   if (gameView) {
     gameView.classList.remove('active');
     isInGame = false;
-    resetGame();
   }
 }
 
@@ -1726,7 +1844,7 @@ function renderCards() {
 async function startGame() {
   if (!currentUser) {
     showPopup('Login Required', 'Please login to play');
-    openAuthModal('login');
+    openAuthModal();
     return;
   }
   if (gameState.currentBet <= 0) {
@@ -1742,6 +1860,8 @@ async function startGame() {
   gameState.totalSpent += gameState.currentBet;
   gameState.firstWagerProgress += gameState.currentBet;
   gameState.totalBets++;
+  
+  checkAndUpdateMissions();
   
   var newVipLevel = 0;
   if (gameState.totalSpent >= 640000) newVipLevel = 5;
@@ -1852,6 +1972,7 @@ function checkGoldenMatch() {
     updateUI();
     updateBalanceDisplay();
     saveUserDataToFirebase();
+    checkAndUpdateMissions();
     
     var winOverlay = document.getElementById('winOverlay');
     var winAmountDisplay = document.getElementById('winAmountDisplay');
@@ -1898,6 +2019,7 @@ function checkMatch() {
       updateUI();
       updateBalanceDisplay();
       saveUserDataToFirebase();
+      checkAndUpdateMissions();
       
       var winOverlay = document.getElementById('winOverlay');
       var winAmountDisplay = document.getElementById('winAmountDisplay');
@@ -1933,6 +2055,7 @@ async function cashout() {
   updateUI();
   updateBalanceDisplay();
   await saveUserDataToFirebase();
+  checkAndUpdateMissions();
   
   var winOverlay = document.getElementById('winOverlay');
   var winAmountDisplay = document.getElementById('winAmountDisplay');
@@ -1981,6 +2104,7 @@ function resetGame() {
   gameState.firstCard = null;
   gameState.secondCard = null;
   gameState.goldenCardsFound = [];
+  gameState.cards = [];
   
   var cashoutBtn = document.getElementById('cashoutBtn');
   var continueBtn = document.getElementById('continueBtn');
@@ -2034,7 +2158,6 @@ function initApp() {
   renderLeaderboard();
   setInterval(renderLeaderboard, 5000);
   
-  // Setup bet option listeners
   var betOptions = document.querySelectorAll('.bet-option');
   for (var i = 0; i < betOptions.length; i++) {
     var btn = betOptions[i];
@@ -2045,7 +2168,6 @@ function initApp() {
     })(btn));
   }
   
-  // Setup game buttons
   var startBtn = document.getElementById('startBtn');
   if (startBtn) startBtn.addEventListener('click', startGame);
   
@@ -2058,7 +2180,6 @@ function initApp() {
   updateUI();
   updateBalanceDisplay();
   
-  // Check for referral code in URL and set it in the register form
   var urlRefCode = getReferralCodeFromURL();
   if (urlRefCode) {
     console.log("Referral code found in URL:", urlRefCode);
@@ -2066,19 +2187,16 @@ function initApp() {
       var referralInput = document.querySelector('#registerForm input[name="referralCode"]');
       if (referralInput) {
         referralInput.value = urlRefCode;
-        console.log("Referral code set in form field");
       }
     }, 1000);
   }
   
-  // Force login on every page load
   if (!currentUser) {
     setTimeout(function() {
-      openAuthModal('login');
+      openAuthModal();
     }, 500);
   }
   
-  // Check for existing auth state
   auth.onAuthStateChanged(function(user) {
     if (user && !currentUser) {
       getUserDataFromFirebase(user.uid).then(function(userData) {
@@ -2100,21 +2218,25 @@ function initApp() {
           if (userData.rewards) {
             rewardState = { ...rewardState, ...userData.rewards };
           }
+          if (userData.missions) {
+            missionsState = { ...missionsState, ...userData.missions };
+          }
           updateHeaderForUser();
           updateUI();
           updateRewardUI();
+          updateMissionsUI();
           hideAuthButtons();
           startAutoRefresh();
+          startRewardCountdown();
         }
       });
     }
   });
   
   console.log('✅ ROYAL MATCH 1 - Fully Loaded!');
-  console.log('✅ Referral link system fixed!');
-  console.log('✅ Login required every time you open the game!');
-  console.log('✅ Daily rewards track time - can only claim once per day!');
-  console.log('✅ Golden cards need to be matched together to win!');
+  console.log('✅ Missions are now collectable!');
+  console.log('✅ Login/Register redesigned!');
+  console.log('✅ Daily rewards track time properly!');
 }
 
 // Make all functions global
@@ -2122,7 +2244,6 @@ window.showDownloadPopup = showDownloadPopup;
 window.closeDownloadPopup = closeDownloadPopup;
 window.copyDownloadLink = copyDownloadLink;
 window.openAuthModal = openAuthModal;
-window.switchAuthTab = switchAuthTab;
 window.closeAuth = closeAuth;
 window.guestLogin = guestLogin;
 window.handleLoginSubmit = handleLoginSubmit;
@@ -2165,6 +2286,7 @@ window.closeDailyRewards = closeDailyRewards;
 window.claimDailyReward = claimDailyReward;
 window.claimWeeklyReward = claimWeeklyReward;
 window.claimMonthlyReward = claimMonthlyReward;
+window.claimMissionReward = claimMissionReward;
 window.openVIPPopup = openVIPPopup;
 window.closeVIPPopup = closeVIPPopup;
 window.openModal = openModal;
@@ -2180,5 +2302,4 @@ window.resetGame = resetGame;
 window.closePopup = closePopup;
 window.showHome = showHome;
 
-// Start the app
 document.addEventListener('DOMContentLoaded', initApp);

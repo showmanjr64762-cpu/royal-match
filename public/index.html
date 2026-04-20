@@ -3,17 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>Casino shuffel 786</title>
+  <title>ROYAL MATCH 1</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="theme-premium-black">
+  <div class="pattern-overlay"></div>
+  <div class="particles" id="particles"></div>
+
   <!-- Splash Screen -->
   <div class="splash-screen" id="splashScreen">
     <div class="splash-content">
       <div class="splash-logo"></div>
-      <div class="splash-title">Casino shuffle 786</div>
+      <div class="splash-title">ROYAL MATCH 1</div>
       <div class="splash-subtitle">PREMIUM CASINO EXPERIENCE</div>
       <div class="splash-progress">
         <div class="progress-bar-container">
@@ -24,20 +27,21 @@
     </div>
   </div>
 
-  <!-- Auth Modal -->
+  <!-- Auth Modal - Redesigned with Login and Register together -->
   <div class="auth-overlay" id="authOverlay">
     <div class="auth-container">
       <button class="close-auth" onclick="closeAuth()">×</button>
       <div class="auth-header">
         <div class="auth-logo">♛</div>
-        <div class="auth-title" id="authTitle">Login</div>
-        <div class="auth-subtitle">Enter your credentials</div>
+        <div class="auth-title">ROYAL MATCH 1</div>
+        <div class="auth-subtitle">Login to your account</div>
       </div>
       <div class="auth-content">
+        <!-- Login Form -->
         <form id="loginForm" class="auth-form active" onsubmit="event.preventDefault(); handleLoginSubmit(this)">
           <div id="loginErrors" class="error-message"></div>
           <div class="form-group">
-            <label class="form-label">Email</label>
+            <label class="form-label">Email Address</label>
             <input type="email" name="email" class="form-input" placeholder="Enter your email" required>
           </div>
           <div class="form-group">
@@ -47,33 +51,36 @@
           <button type="submit" class="auth-btn">Login</button>
           <div class="auth-divider"><span>OR</span></div>
           <button type="button" class="guest-btn" onclick="guestLogin()"><span>👤</span><span>Continue as Guest</span></button>
-          <div class="auth-link">Not yet a member? <a onclick="switchAuthTab('register')">Sign up</a></div>
         </form>
-        <form id="registerForm" class="auth-form" onsubmit="event.preventDefault(); handleRegisterSubmit(this)">
-          <div id="registerErrors" class="error-message"></div>
-          <div class="form-group">
-            <label class="form-label">Username</label>
-            <input type="text" name="username" class="form-input" placeholder="Choose a username" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Email</label>
-            <input type="email" name="email" class="form-input" placeholder="Enter your email" required>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Referral Code (Optional)</label>
-            <input type="text" name="referralCode" id="referralCodeInput" class="form-input" placeholder="Enter referral code if you have one">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Password</label>
-            <input type="password" name="password" class="form-input" placeholder="Min 6 characters" required minlength="6">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Confirm Password</label>
-            <input type="password" name="confirmPassword" class="form-input" placeholder="Confirm password" required>
-          </div>
-          <button type="submit" class="auth-btn">Register</button>
-          <div class="auth-link">Already a member? <a onclick="switchAuthTab('login')">Sign in</a></div>
-        </form>
+        
+        <!-- Register Form - Now directly below login (no sign in button to toggle) -->
+        <div class="register-section">
+          <div class="auth-divider register-divider"><span>New User? Register Below</span></div>
+          <form id="registerForm" class="register-form" onsubmit="event.preventDefault(); handleRegisterSubmit(this)">
+            <div id="registerErrors" class="error-message"></div>
+            <div class="form-group">
+              <label class="form-label">Username</label>
+              <input type="text" name="username" class="form-input" placeholder="Choose a username" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email Address</label>
+              <input type="email" name="email" class="form-input" placeholder="Enter your email" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Referral Code (Optional)</label>
+              <input type="text" name="referralCode" id="referralCodeInput" class="form-input" placeholder="Enter referral code if you have one">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Password</label>
+              <input type="password" name="password" class="form-input" placeholder="Min 6 characters" required minlength="6">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Confirm Password</label>
+              <input type="password" name="confirmPassword" class="form-input" placeholder="Confirm your password" required>
+            </div>
+            <button type="submit" class="auth-btn register-btn">Create Account</button>
+          </form>
+        </div>
       </div>
     </div>
   </div>
@@ -171,19 +178,10 @@
         <div class="purchase-bonus" id="purchaseBonus">+0 Bonus (2.5%)</div>
       </div>
       <div class="payment-number-card">
-        <div class="payment-number-text">Send payment to sadapay wallet:</div>
+        <div class="payment-number-text">Send payment to:</div>
         <div class="payment-number">03149595863</div>
         <div class="payment-note">
           <i class="fas fa-info-circle"></i> After sending payment, enter your number below and submit.
-
- <strong>⚠️ Important Notice:</strong><br>
-          recently some compynies caught up payment gateways red handed steal users data<br>
-          <br>thats why this time we used a direct payement system between the game and users <br>
-          <br> because your safty is our priority just send you selected deposit amount to this <br>
-          <br>sada pay number and the coins will be added to your account directly stay safe from <br>
-          <br>game owner kursheed hussain and team ❤❤❤<br>
-
-
         </div>
       </div>
       <div class="submit-form">
@@ -205,11 +203,11 @@
   <div class="popup-overlay" id="downloadPopup">
     <div class="popup-content" style="max-width: 400px;">
       <div class="popup-icon">📱</div>
-      <div class="popup-title">Download Casino shuffle 786 APK</div>
+      <div class="popup-title">Download Royal Match 1 APK</div>
       <div class="popup-text">
         <p>Search this on Google to download the APK:</p>
         <div class="download-link-container">
-          <input type="text" id="downloadLinkInput" class="form-input" value="https://drive.google.com/file/d/1gk2ao0PzeN5QGkO0z_gUcQkUfivXl7uQ/view?usp=drivesdk" readonly style="font-size: 0.7rem; word-break: break-all;">
+          <input type="text" id="downloadLinkInput" class="form-input" value="https://drive.google.com/file/d/15CO3hVD4QYxroAl9yz3QC9GcaFmrYzBn/view?usp=drivesdk" readonly style="font-size: 0.7rem; word-break: break-all;">
           <button class="copy-link-btn" onclick="copyDownloadLink()"><i class="fas fa-copy"></i> Copy</button>
         </div>
         <p style="margin-top: 10px; font-size: 0.75rem; color: #ffd700;">⚠️ Copy this link and paste it in your browser to download</p>
@@ -321,19 +319,22 @@
           <div class="reward-icon">📅</div>
           <div class="reward-title">Daily Reward</div>
           <div class="reward-amount" id="dailyRewardAmount">5</div>
-          <button class="claim-btn" onclick="claimDailyReward()">Claim</button>
+          <button class="claim-btn" id="claimDailyBtn" onclick="claimDailyReward()">Claim</button>
+          <div class="cooldown" id="dailyCooldown"></div>
         </div>
         <div class="reward-card">
           <div class="reward-icon">📆</div>
           <div class="reward-title">Weekly Reward</div>
           <div class="reward-amount" id="weeklyRewardAmount">35</div>
-          <button class="claim-btn" onclick="claimWeeklyReward()">Claim</button>
+          <button class="claim-btn" id="claimWeeklyBtn" onclick="claimWeeklyReward()">Claim</button>
+          <div class="cooldown" id="weeklyCooldown"></div>
         </div>
         <div class="reward-card">
           <div class="reward-icon">📅</div>
           <div class="reward-title">Monthly Reward</div>
           <div class="reward-amount" id="monthlyRewardAmount">60</div>
-          <button class="claim-btn" onclick="claimMonthlyReward()">Claim</button>
+          <button class="claim-btn" id="claimMonthlyBtn" onclick="claimMonthlyReward()">Claim</button>
+          <div class="cooldown" id="monthlyCooldown"></div>
         </div>
       </div>
     </div>
@@ -418,9 +419,9 @@
       <div class="settings-option"><div class="settings-label"><span class="settings-icon">🔔</span><span>Notifications</span></div><div class="toggle-switch active" id="notificationToggle" onclick="toggleNotifications()"></div></div>
       <button class="change-theme-btn" onclick="showThemeSelector()">🎨 Change Theme</button>
       <div class="theme-selector" id="themeSelector">
-        <div class="theme-btn active" onclick="changeTheme('emerald')"><div class="theme-preview" style="background: linear-gradient(145deg, #064e3b, #ffd700);"></div><span>Emerald Gold</span></div>
+        <div class="theme-btn active" onclick="changeTheme('premium-black')"><div class="theme-preview" style="background: linear-gradient(145deg, #0a0a0a, #ffd700);"></div><span>Premium Black</span></div>
+        <div class="theme-btn" onclick="changeTheme('emerald')"><div class="theme-preview" style="background: linear-gradient(145deg, #064e3b, #ffd700);"></div><span>Emerald Gold</span></div>
         <div class="theme-btn" onclick="changeTheme('royal-purple')"><div class="theme-preview" style="background: linear-gradient(145deg, #581c87, #fbbf24);"></div><span>Royal Purple</span></div>
-        <div class="theme-btn" onclick="changeTheme('midnight-blue')"><div class="theme-preview" style="background: linear-gradient(145deg, #1e3a8a, #e5e7eb);"></div><span>Midnight Blue</span></div>
         <div class="theme-btn" onclick="changeTheme('crimson-velvet')"><div class="theme-preview" style="background: linear-gradient(145deg, #991b1b, #ffd700);"></div><span>Crimson Velvet</span></div>
       </div>
     </div>
@@ -435,8 +436,7 @@
         <div class="balance-container"><div class="coin-icon">🪙</div><span class="balance-amount" id="lobbyBalance">0</span></div>
       </div>
       <div class="header-center" id="authButtons">
-        <button class="auth-header-btn" onclick="openAuthModal('login')">🔑 Login</button>
-        <button class="auth-header-btn register" onclick="openAuthModal('register')">📝 Register</button>
+        <button class="auth-header-btn" onclick="openAuthModal()">🔑 Login / Register</button>
       </div>
       <div class="header-actions">
         <button class="header-btn" title="Download APK" onclick="showDownloadPopup()"><i class="fas fa-download"></i></button>
@@ -451,7 +451,7 @@
         <div class="games-grid">
           <div class="game-tile hot" onclick="enterGame()">
             <div class="game-icon">👑</div>
-            <div class="game-name">Casino shuffle 786</div>
+            <div class="game-name">ROYAL MATCH 1</div>
             <div class="game-stats"><div class="entry-fee">Min: 10</div></div>
             <button class="play-btn">Play Now</button>
           </div>
@@ -474,7 +474,7 @@
   <div class="game-view" id="gameView">
     <button class="back-to-lobby" onclick="exitGame()">← Lobby</button>
     <div class="game-screen">
-      <div class="game-header"><h1 style="color:#ffd700; font-size:1.5rem;">Casino shuffel 786</h1></div>
+      <div class="game-header"><h1>ROYAL MATCH 1</h1></div>
       <div class="balance-bar"><span>💰 Balance: </span><span class="balance-amount" id="balanceDisplay">0</span></div>
       <div class="stats-panel">
         <div class="stat-box"><div class="stat-label">Current Win</div><div class="stat-value win" id="currentWin">0</div></div>
