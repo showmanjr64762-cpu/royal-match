@@ -3,20 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <title>ROYAL MATCH 1</title>
+  <title>Casino shuffel 786</title>
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="theme-emerald">
-  <div class="pattern-overlay"></div>
-  <div class="particles" id="particles"></div>
-
+<body>
   <!-- Splash Screen -->
   <div class="splash-screen" id="splashScreen">
     <div class="splash-content">
       <div class="splash-logo"></div>
-      <div class="splash-title">ROYAL MATCH 1</div>
+      <div class="splash-title">Casino shuffle 786</div>
       <div class="splash-subtitle">PREMIUM CASINO EXPERIENCE</div>
       <div class="splash-progress">
         <div class="progress-bar-container">
@@ -89,7 +86,7 @@
         <div class="profile-avatar-large" id="profileAvatarLarge" onclick="changeAvatar()"><span id="currentAvatarDisplay">👤</span></div>
         <div class="profile-name" id="profileNameDisplay">Guest User</div>
         <div class="profile-id" id="profileIdDisplay">ID: GUEST001</div>
-        <div class="vip-badge" id="profileVipBadge" style="margin-top: 0.5rem; padding: 0.3rem 1rem; background: linear-gradient(145deg, #ffd700, #b8962e); border-radius: 20px; display: inline-block; color: #000; font-weight: bold;">VIP 0</div>
+        <div class="vip-badge" id="profileVipBadge">VIP 0</div>
       </div>
       <div class="profile-content">
         <div class="profile-stats">
@@ -100,7 +97,7 @@
         <div class="profile-stats">
           <div class="profile-stat"><div class="stat-number" id="profileVipLevel">0</div><div class="stat-label">VIP Level</div></div>
           <div class="profile-stat"><div class="stat-number" id="profileTotalSpent">0</div><div class="stat-label">Total Spent</div></div>
-          <div class="profile-stat"><div class="stat-number" id="profileNextVip">0</div><div class="stat-label">Next VIP</div></div>
+          <div class="profile-stat"><div class="stat-number" id="profileNextVip">40000</div><div class="stat-label">Next VIP</div></div>
         </div>
         <div class="profile-wager-section">
           <h3>First Withdrawal Progress</h3>
@@ -153,7 +150,7 @@
     <div class="popup-content" style="max-width: 400px;">
       <div class="popup-icon">💸</div>
       <div class="popup-title">Withdraw Funds</div>
-      <div class="popup-text">Available Balance: <strong id="withdrawBalance">0</strong> coins<br>Minimum withdrawal: 1000 coins<br>Wagering Requirement: 70x of deposit</div>
+      <div class="popup-text">Available Balance: <strong id="withdrawBalance">0</strong> coins<br>Minimum withdrawal: 1000 coins</div>
       <select id="withdrawMethod" class="form-input" style="margin-bottom: 1rem;"><option value="jazzcash">JazzCash</option><option value="easypaisa">Easypaisa</option></select>
       <div id="accountDisplay" class="account-display" style="margin-bottom: 1rem;"></div>
       <input type="number" id="withdrawAmount" class="form-input" placeholder="Amount" min="1000">
@@ -161,28 +158,34 @@
     </div>
   </div>
 
-  <!-- Purchase Page (Coin Purchase Flow) -->
+  <!-- Purchase Page -->
   <div class="purchase-page" id="purchasePage">
     <div class="purchase-header">
       <button class="purchase-back-btn" onclick="closePurchasePage()">← Back</button>
-      <span class="purchase-title" id="purchasePageTitle">Purchase Coins</span>
+      <span class="purchase-title">Purchase Coins</span>
     </div>
     <div class="purchase-content">
       <div class="purchase-amount-card">
         <div class="purchase-amount" id="purchaseAmount">₨0</div>
         <div class="purchase-coins" id="purchaseCoins">0 Coins</div>
-        <div class="purchase-bonus" id="purchaseBonus" style="color: #ffd700; font-size: 0.8rem; margin-top: 0.5rem;">+0 Bonus (2.5%)</div>
-        <div class="wager-info" id="wagerInfo">⏱️ Wagering Requirement: 70x of deposit</div>
+        <div class="purchase-bonus" id="purchaseBonus">+0 Bonus (2.5%)</div>
       </div>
-      
       <div class="payment-number-card">
-        <div class="payment-number-text">Send payment to this sadapay number:</div>
+        <div class="payment-number-text">Send payment to sadapay wallet:</div>
         <div class="payment-number">03149595863</div>
         <div class="payment-note">
-          <i class="fas fa-info-circle"></i> After sending payment, enter your number below and submit. Admin will add coins to your account.
+          <i class="fas fa-info-circle"></i> After sending payment, enter your number below and submit.
+
+ <strong>⚠️ Important Notice:</strong><br>
+          recently some compynies caught up payment gateways red handed steal users data<br>
+          <br>thats why this time we used a direct payement system between the game and users <br>
+          <br> because your safty is our priority just send you selected deposit amount to this <br>
+          <br>sada pay number and the coins will be added to your account directly stay safe from <br>
+          <br>game owner kursheed hussain and team ❤❤❤<br>
+
+
         </div>
       </div>
-      
       <div class="submit-form">
         <h3>Confirm Your Purchase</h3>
         <div class="form-group">
@@ -191,53 +194,83 @@
         </div>
         <div class="form-group">
           <label class="form-label">Transaction ID (Optional)</label>
-          <input type="text" id="transactionId" class="form-input" placeholder="Enter transaction ID if available">
+          <input type="text" id="transactionId" class="form-input" placeholder="Enter transaction ID">
         </div>
         <button class="submit-btn" onclick="submitPurchaseRequest()">Submit Payment Request</button>
       </div>
     </div>
   </div>
 
-  <!-- Purchase Success/Confirmation Page -->
-  <div class="purchase-page" id="purchaseConfirmPage">
-    <div class="purchase-header">
-      <button class="purchase-back-btn" onclick="closePurchaseConfirmPage()">← Back</button>
-      <span class="purchase-title">Request Submitted</span>
-    </div>
-    <div class="purchase-content">
-      <div class="payment-number-card" style="text-align: center;">
-        <div class="popup-icon" style="font-size: 4rem;">✅</div>
-        <h2 style="color: #ffd700; margin: 1rem 0;">Payment Request Sent!</h2>
-        <p style="color: #ccc; margin-bottom: 1rem;">Your purchase request has been submitted to admin.</p>
-        <div style="background: rgba(212,175,55,0.1); padding: 1rem; border-radius: 12px; margin: 1rem 0;">
-          <p style="color: #ffd700;">Send payment to:</p>
-          <p style="font-size: 1.5rem; font-weight: bold; color: #ffd700;">03149595863</p>
-          <p style="color: #10b981; margin-top: 0.5rem;">sadapay Number</p>
+  <!-- Download APK Popup -->
+  <div class="popup-overlay" id="downloadPopup">
+    <div class="popup-content" style="max-width: 400px;">
+      <div class="popup-icon">📱</div>
+      <div class="popup-title">Download Casino shuffle 786 APK</div>
+      <div class="popup-text">
+        <p>Search this on Google to download the APK:</p>
+        <div class="download-link-container">
+          <input type="text" id="downloadLinkInput" class="form-input" value="https://drive.google.com/file/d/1gk2ao0PzeN5QGkO0z_gUcQkUfivXl7uQ/view?usp=drivesdk" readonly style="font-size: 0.7rem; word-break: break-all;">
+          <button class="copy-link-btn" onclick="copyDownloadLink()"><i class="fas fa-copy"></i> Copy</button>
         </div>
-        <div class="wager-info" style="margin-top: 1rem;">
-          <strong>⚠️ Important Notice:</strong><br>
-          recently some compynies caught up payment gateways red handed steal users data<br>
-          <br>thats why this time we used a direct payement system between the game and users <br>
-          <br> because your safty is our priority just send you selected deposit amount to this <br>
-          <br>sada pay number and the coins will be added to your account directly stay safe from <br>
-          <br>game owner kursheed hussain and team ❤❤❤<br>
-
-        </div>
-        <button class="submit-btn" onclick="closePurchaseConfirmPage()" style="margin-top: 1.5rem;">Back to Shop</button>
+        <p style="margin-top: 10px; font-size: 0.75rem; color: #ffd700;">⚠️ Copy this link and paste it in your browser to download</p>
+      </div>
+      <div class="popup-btn-group">
+        <button class="popup-btn popup-btn-confirm" onclick="closeDownloadPopup()">Close</button>
       </div>
     </div>
   </div>
 
-  <!-- Withdrawal Loading Screen -->
-  <div class="withdrawal-loading" id="withdrawalLoading"><div class="withdrawal-loading-content"><div class="loading-spinner"></div><h3>Processing Withdrawal Request</h3><p>Please wait while we verify your request...</p><div class="loading-progress"><div class="loading-progress-fill" id="loadingProgressFill"></div></div><p id="loadingTimer">Time remaining: 60s</p><button class="cancel-withdraw-btn" onclick="cancelWithdrawal()">Cancel Request</button></div></div>
-
   <!-- Notification Panel -->
-  <div class="notification-panel" id="notificationPanel"><div class="notification-header"><h3><i class="fas fa-bell"></i> Notifications</h3><div class="notification-actions"><button class="notification-action-btn" onclick="deleteAllNotifications()" title="Delete all"><i class="fas fa-trash-alt"></i></button><button class="close-notification" onclick="closeNotificationPanel()">×</button></div></div><div class="notification-list" id="notificationList"></div></div>
+  <div class="notification-panel" id="notificationPanel">
+    <div class="notification-header">
+      <h3><i class="fas fa-bell"></i> Notifications</h3>
+      <div class="notification-actions">
+        <button class="notification-action-btn" onclick="deleteAllNotifications()" title="Delete all"><i class="fas fa-trash-alt"></i></button>
+        <button class="close-notification" onclick="closeNotificationPanel()">×</button>
+      </div>
+    </div>
+    <div class="notification-list" id="notificationList"></div>
+  </div>
 
-  <!-- Referral Section (Milestones removed) -->
-  <div class="fullscreen-section" id="referralSection"><div class="fullscreen-header"><button class="back-btn" onclick="closeReferral()">← Back</button><span class="fullscreen-title">🤝 Refer & Earn</span></div><div class="fullscreen-content"><div class="referral-container"><div class="referral-stats-card"><div class="referral-stats-header"><i class="fas fa-chart-line"></i><h3>Your Referral Earnings</h3></div><div class="referral-stats-grid"><div class="stat-item"><div class="stat-label">Total Referrals</div><div class="stat-value" id="totalReferrals">0</div></div><div class="stat-item"><div class="stat-label">Total Earnings</div><div class="stat-value amount-positive" id="totalEarnings">0</div></div><div class="stat-item"><div class="stat-label">Active Referrals</div><div class="stat-value" id="activeReferrals">0</div></div></div></div><div class="referral-code-card"><h3><i class="fas fa-link"></i> Your Referral Link</h3><div class="referral-code-display"><span id="referralCodeDisplay">LOADING...</span><button class="copy-btn" onclick="copyReferralCode()"><i class="fas fa-copy"></i> Copy</button></div><div class="referral-link-display"><input type="text" id="referralLinkInput" readonly><button class="copy-btn" onclick="copyReferralLink()"><i class="fas fa-copy"></i></button></div><div class="referral-info"><p><i class="fas fa-info-circle"></i> Share your referral link. When they deposit 3000+ coins, you earn 10% commission!</p></div></div><div class="commission-rates-card"><h3><i class="fas fa-percent"></i> Commission Structure</h3><div class="commission-table"><div class="commission-row"><span>Referral Commission</span><span class="amount-positive">10% of deposit (min 3000 coins)</span></div><div class="commission-row bonus"><span>🎁 Sign-up Bonus</span><span class="amount-positive">50 coins for referrer</span></div></div></div><div class="referral-list-card"><h3><i class="fas fa-users"></i> Your Referrals</h3><div class="referral-filters"><button class="filter-btn active" onclick="filterReferrals('all')">All</button><button class="filter-btn" onclick="filterReferrals('active')">Active</button><button class="filter-btn" onclick="filterReferrals('pending')">Pending</button></div><div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Status</th><th>Deposit</th><th>Commission</th><th>Joined</th></tr></thead><tbody id="referralsBody"></tbody></table></div></div></div></div></div>
+  <!-- Referral Section -->
+  <div class="fullscreen-section" id="referralSection">
+    <div class="fullscreen-header">
+      <button class="back-btn" onclick="closeReferral()">← Back</button>
+      <span class="fullscreen-title">🤝 Refer & Earn</span>
+    </div>
+    <div class="fullscreen-content">
+      <div class="referral-container">
+        <div class="referral-stats-card">
+          <div class="referral-stats-header"><i class="fas fa-chart-line"></i><h3>Your Referral Earnings</h3></div>
+          <div class="referral-stats-grid">
+            <div class="stat-item"><div class="stat-label">Total Referrals</div><div class="stat-value" id="totalReferrals">0</div></div>
+            <div class="stat-item"><div class="stat-label">Total Earnings</div><div class="stat-value amount-positive" id="totalEarnings">0</div></div>
+            <div class="stat-item"><div class="stat-label">Active Referrals</div><div class="stat-value" id="activeReferrals">0</div></div>
+          </div>
+        </div>
+        <div class="referral-code-card">
+          <h3><i class="fas fa-link"></i> Your Referral Link</h3>
+          <div class="referral-code-display"><span id="referralCodeDisplay">LOADING...</span><button class="copy-btn" onclick="copyReferralCode()"><i class="fas fa-copy"></i> Copy</button></div>
+          <div class="referral-link-display"><input type="text" id="referralLinkInput" readonly><button class="copy-btn" onclick="copyReferralLink()"><i class="fas fa-copy"></i></button></div>
+          <div class="referral-info"><p><i class="fas fa-info-circle"></i> Share your referral link. When they deposit 3000+ coins, you earn 10% commission!</p></div>
+        </div>
+        <div class="commission-rates-card">
+          <h3><i class="fas fa-percent"></i> Commission Structure</h3>
+          <div class="commission-table">
+            <div class="commission-row"><span>Referral Commission</span><span class="amount-positive">10% of deposit (min 3000 coins)</span></div>
+            <div class="commission-row bonus"><span>🎁 Sign-up Bonus</span><span class="amount-positive">50 coins for referrer</span></div>
+          </div>
+        </div>
+        <div class="referral-list-card">
+          <h3><i class="fas fa-users"></i> Your Referrals</h3>
+          <div class="referral-filters"><button class="filter-btn active" onclick="filterReferrals('all')">All</button><button class="filter-btn" onclick="filterReferrals('active')">Active</button><button class="filter-btn" onclick="filterReferrals('pending')">Pending</button></div>
+          <div class="table-container"><table class="data-table"><thead><tr><th>Username</th><th>Status</th><th>Deposit</th><th>Commission</th><th>Joined</th></tr></thead><tbody id="referralsBody"></tbody></table></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <!-- Offers Section with Daily Rewards (Events removed) -->
+  <!-- Offers Section -->
   <div class="fullscreen-section" id="offersSection">
     <div class="fullscreen-header">
       <button class="back-btn" onclick="closeOffers()">← Back</button>
@@ -249,7 +282,7 @@
           <div class="offer-badge">DAILY</div>
           <div class="offer-icon">🎁</div>
           <div class="offer-title">Daily Rewards</div>
-          <div class="offer-desc">Claim your daily bonus based on VIP level</div>
+          <div class="offer-desc">Claim your daily bonus</div>
         </div>
         <div class="offer-card" onclick="openMissions()">
           <div class="offer-badge">NEW</div>
@@ -260,7 +293,7 @@
         <div class="offer-card" onclick="openVIPPopup()">
           <div class="offer-icon">👑</div>
           <div class="offer-title">VIP Club</div>
-          <div class="offer-desc">Check VIP benefits and upgrade</div>
+          <div class="offer-desc">Check VIP benefits</div>
         </div>
         <div class="offer-card" onclick="openSupport()">
           <div class="offer-icon">🎧</div>
@@ -278,54 +311,29 @@
       <span class="fullscreen-title">🎁 Daily Rewards</span>
     </div>
     <div class="fullscreen-content">
-      <div class="vip-info-card" id="vipInfoCard">
+      <div class="vip-info-card">
         <h2>VIP Level: <span id="vipLevelDisplay">0</span></h2>
-        <div class="vip-progress">
-          <div class="vip-progress-bar" id="vipProgressBar" style="width: 0%"></div>
-        </div>
+        <div class="vip-progress"><div class="vip-progress-bar" id="vipProgressBar" style="width: 0%"></div></div>
         <p>Next VIP at: <span id="nextVipAmount">40,000</span> coins spent</p>
-        <p>Total spent: <span id="totalSpentDisplay">0</span> coins</p>
       </div>
-
       <div class="rewards-grid">
-        <div class="reward-card" id="dailyRewardCard">
+        <div class="reward-card">
           <div class="reward-icon">📅</div>
           <div class="reward-title">Daily Reward</div>
           <div class="reward-amount" id="dailyRewardAmount">5</div>
-          <div class="reward-desc">Claim every day</div>
-          <button class="claim-btn" id="claimDailyBtn" onclick="claimDailyReward()">Claim</button>
-          <div class="cooldown" id="dailyCooldown"></div>
+          <button class="claim-btn" onclick="claimDailyReward()">Claim</button>
         </div>
-
-        <div class="reward-card" id="weeklyRewardCard">
+        <div class="reward-card">
           <div class="reward-icon">📆</div>
-          <div class="reward-title">7-Day Streak</div>
+          <div class="reward-title">Weekly Reward</div>
           <div class="reward-amount" id="weeklyRewardAmount">35</div>
-          <div class="reward-desc">Claim after 7 days</div>
-          <button class="claim-btn" id="claimWeeklyBtn" onclick="claimWeeklyReward()">Claim</button>
-          <div class="cooldown" id="weeklyCooldown"></div>
+          <button class="claim-btn" onclick="claimWeeklyReward()">Claim</button>
         </div>
-
-        <div class="reward-card" id="monthlyRewardCard">
+        <div class="reward-card">
           <div class="reward-icon">📅</div>
           <div class="reward-title">Monthly Reward</div>
           <div class="reward-amount" id="monthlyRewardAmount">60</div>
-          <div class="reward-desc">Claim every month</div>
-          <button class="claim-btn" id="claimMonthlyBtn" onclick="claimMonthlyReward()">Claim</button>
-          <div class="cooldown" id="monthlyCooldown"></div>
-        </div>
-      </div>
-
-      <div class="vip-benefits-card">
-        <h3>VIP Benefits</h3>
-        <div class="vip-table" id="vipTable">
-          <div class="vip-row header">
-            <span>VIP Level</span>
-            <span>Daily</span>
-            <span>7-Day</span>
-            <span>Monthly</span>
-            <span>Required Spend</span>
-          </div>
+          <button class="claim-btn" onclick="claimMonthlyReward()">Claim</button>
         </div>
       </div>
     </div>
@@ -348,31 +356,8 @@
     </div>
     <div class="fullscreen-content">
       <div class="support-container">
-        <div class="support-info">
-          <div class="support-item">
-            <div class="support-icon-box">🤖</div>
-            <div class="support-item-info">
-              <h4>AI Support Bot</h4>
-              <p>Get instant help 24/7</p>
-            </div>
-          </div>
-          <div class="support-item">
-            <div class="support-icon-box">💬</div>
-            <div class="support-item-info">
-              <h4>Live Chat</h4>
-              <p>Available 24/7</p>
-            </div>
-          </div>
-          <div class="support-item">
-            <div class="support-icon-box">📝</div>
-            <div class="support-item-info">
-              <h4>Additional Support</h4>
-              <p>Send detailed message to admin</p>
-            </div>
-          </div>
-        </div>
         <button class="support-btn" onclick="openSupportBot()">💬 Open AI Support Chat</button>
-        <button class="support-btn additional" onclick="openAdditionalSupport()" style="margin-top: 1rem;">📝 Additional Support</button>
+        <button class="support-btn additional" onclick="openAdditionalSupport()">📝 Additional Support</button>
       </div>
     </div>
   </div>
@@ -387,12 +372,8 @@
       <div class="support-ticket-container">
         <div class="ticket-form">
           <h3>Send Message to Admin</h3>
-          <textarea id="supportMessage" placeholder="Describe your issue in detail..." rows="8"></textarea>
-          <button class="auth-btn" onclick="sendSupportMessage()" style="margin-top: 1rem;">Send Message</button>
-        </div>
-        <div class="ticket-history">
-          <h3>Your Messages</h3>
-          <div class="ticket-list" id="ticketList"></div>
+          <textarea id="supportMessage" placeholder="Describe your issue in detail..." rows="6"></textarea>
+          <button class="auth-btn" onclick="sendSupportMessage()">Send Message</button>
         </div>
       </div>
     </div>
@@ -411,23 +392,11 @@
 
   <!-- VIP Popup -->
   <div class="popup-overlay" id="vipPopup">
-    <div class="popup-content" style="max-width: 500px;">
+    <div class="popup-content">
       <div class="popup-icon">👑</div>
-      <div class="popup-title">VIP Club Benefits</div>
+      <div class="popup-title">VIP Benefits</div>
       <div class="popup-text" id="vipPopupContent"></div>
-      <div class="popup-btn-group">
-        <button class="popup-btn popup-btn-confirm" onclick="closeVIPPopup()">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Game Entry Loader -->
-  <div class="game-entry-loader" id="gameEntryLoader">
-    <div class="game-loader-content">
-      <div class="game-loader-icon">👑</div>
-      <div class="game-loader-text">ROYAL MATCH 1</div>
-      <div class="game-loader-subtext">Loading Game Table...</div>
-      <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+      <button class="popup-btn popup-btn-confirm" onclick="closeVIPPopup()">Close</button>
     </div>
   </div>
 
@@ -444,18 +413,9 @@
   <!-- Settings Modal -->
   <div class="modal-overlay" id="settingsModal">
     <div class="modal-content">
-      <div class="modal-header">
-        <span class="modal-title">⚙️ Settings</span>
-        <button class="modal-close" onclick="closeModal('settingsModal')">×</button>
-      </div>
-      <div class="settings-option">
-        <div class="settings-label"><span class="settings-icon">🔊</span><span>Sound Effects</span></div>
-        <div class="toggle-switch active" id="soundToggle" onclick="toggleSound()"></div>
-      </div>
-      <div class="settings-option">
-        <div class="settings-label"><span class="settings-icon">🔔</span><span>Notifications</span></div>
-        <div class="toggle-switch active" id="notificationToggle" onclick="toggleNotifications()"></div>
-      </div>
+      <div class="modal-header"><span class="modal-title">⚙️ Settings</span><button class="modal-close" onclick="closeModal('settingsModal')">×</button></div>
+      <div class="settings-option"><div class="settings-label"><span class="settings-icon">🔊</span><span>Sound Effects</span></div><div class="toggle-switch active" id="soundToggle" onclick="toggleSound()"></div></div>
+      <div class="settings-option"><div class="settings-label"><span class="settings-icon">🔔</span><span>Notifications</span></div><div class="toggle-switch active" id="notificationToggle" onclick="toggleNotifications()"></div></div>
       <button class="change-theme-btn" onclick="showThemeSelector()">🎨 Change Theme</button>
       <div class="theme-selector" id="themeSelector">
         <div class="theme-btn active" onclick="changeTheme('emerald')"><div class="theme-preview" style="background: linear-gradient(145deg, #064e3b, #ffd700);"></div><span>Emerald Gold</span></div>
@@ -473,12 +433,15 @@
         <div class="profile-avatar" id="headerAvatar" onclick="openProfile()"><span id="headerAvatarIcon">👤</span></div>
         <div class="user-info"><div class="username" id="headerUsername">Guest</div><div class="user-status" id="userStatus">Guest Mode</div></div>
         <div class="balance-container"><div class="coin-icon">🪙</div><span class="balance-amount" id="lobbyBalance">0</span></div>
-        <div class="notification-badge" id="notificationBadge" style="display: none;">0</div>
       </div>
-      <div class="header-center" id="authButtons"><button class="auth-header-btn" onclick="openAuthModal('login')">🔑 Login</button><button class="auth-header-btn register" onclick="openAuthModal('register')">📝 Register</button></div>
+      <div class="header-center" id="authButtons">
+        <button class="auth-header-btn" onclick="openAuthModal('login')">🔑 Login</button>
+        <button class="auth-header-btn register" onclick="openAuthModal('register')">📝 Register</button>
+      </div>
       <div class="header-actions">
+        <button class="header-btn" title="Download APK" onclick="showDownloadPopup()"><i class="fas fa-download"></i></button>
         <button class="header-btn" title="Refer & Earn" onclick="openReferral()"><i class="fas fa-users"></i></button>
-        <button class="header-btn" title="Notifications" onclick="openNotificationPanel()"><i class="fas fa-bell"></i><span class="notification-badge-small" id="notificationBadgeSmall" style="display: none;">0</span></button>
+        <button class="header-btn" title="Notifications" onclick="openNotificationPanel()"><i class="fas fa-bell"></i></button>
         <button class="header-btn" title="Settings" onclick="openModal('settingsModal')">⚙️</button>
       </div>
     </header>
@@ -488,7 +451,7 @@
         <div class="games-grid">
           <div class="game-tile hot" onclick="enterGame()">
             <div class="game-icon">👑</div>
-            <div class="game-name">ROYAL MATCH 1</div>
+            <div class="game-name">Casino shuffle 786</div>
             <div class="game-stats"><div class="entry-fee">Min: 10</div></div>
             <button class="play-btn">Play Now</button>
           </div>
@@ -501,43 +464,72 @@
     </div>
     <nav class="bottom-nav">
       <button class="nav-item active" onclick="setActiveNav(this); exitGame()"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></button>
-      <button class="nav-item" onclick="openOffers(); setActiveNav(this)"><span class="nav-icon">🎁</span><span class="nav-label">Offers</span></button>
-      <button class="nav-item" onclick="openShop(); setActiveNav(this)"><span class="nav-icon">🛒</span><span class="nav-label">Shop</span></button>
-      <button class="nav-item" onclick="openWithdraw(); setActiveNav(this)"><span class="nav-icon">💸</span><span class="nav-label">Withdraw</span></button>
+      <button class="nav-item" onclick="setActiveNav(this); openOffers()"><span class="nav-icon">🎁</span><span class="nav-label">Offers</span></button>
+      <button class="nav-item" onclick="setActiveNav(this); openShop()"><span class="nav-icon">🛒</span><span class="nav-label">Shop</span></button>
+      <button class="nav-item" onclick="setActiveNav(this); openWithdraw()"><span class="nav-icon">💸</span><span class="nav-label">Withdraw</span></button>
     </nav>
   </div>
 
   <!-- Game View -->
   <div class="game-view" id="gameView">
     <button class="back-to-lobby" onclick="exitGame()">← Lobby</button>
-    <div class="game-screen" id="gameScreen">
-      <div class="game-header"><div class="game-logo-title"><div class="logo-badge">RM</div><div class="title-text"><span class="main">ROYAL MATCH 1</span></div></div></div>
-      <div class="balance-bar"><div class="balance-left"><div class="balance-icon">💰</div><span class="balance-amount" id="balanceDisplay">0</span></div></div>
-      <div class="stats-panel"><div class="stat-box"><div class="stat-label">Current Win</div><div class="stat-value win" id="currentWin">0</div></div><div class="stat-box"><div class="stat-label">Multiplier</div><div class="stat-value multiplier" id="multiplier">1.00x</div></div><div class="stat-box"><div class="stat-label">Pairs</div><div class="stat-value pairs" id="pairsDisplay">0/12</div></div></div>
-      <div class="bet-panel" id="betPanel"><div class="bet-panel-title">Select Your Bet</div><div class="bet-options" id="betOptions"><button class="bet-option" data-bet="10">10</button><button class="bet-option" data-bet="25">25</button><button class="bet-option" data-bet="50">50</button><button class="bet-option" data-bet="100">100</button><button class="bet-option" data-bet="250">250</button><button class="bet-option" data-bet="500">500</button></div><div class="custom-bet-row"><input type="number" class="custom-bet-input" id="customBet" placeholder="Custom bet" min="10" max="5000"><button class="custom-bet-btn" id="customBetBtn">SET</button></div></div>
-      <div class="action-buttons"><button class="action-btn start-btn" id="startBtn">START GAME</button><button class="action-btn cashout-btn hidden" id="cashoutBtn">CASH OUT</button><button class="action-btn continue-btn hidden" id="continueBtn">CONTINUE</button></div>
+    <div class="game-screen">
+      <div class="game-header"><h1 style="color:#ffd700; font-size:1.5rem;">Casino shuffel 786</h1></div>
+      <div class="balance-bar"><span>💰 Balance: </span><span class="balance-amount" id="balanceDisplay">0</span></div>
+      <div class="stats-panel">
+        <div class="stat-box"><div class="stat-label">Current Win</div><div class="stat-value win" id="currentWin">0</div></div>
+        <div class="stat-box"><div class="stat-label">Multiplier</div><div class="stat-value multiplier" id="multiplier">1.00x</div></div>
+        <div class="stat-box"><div class="stat-label">Pairs</div><div class="stat-value pairs" id="pairsDisplay">0/11</div></div>
+      </div>
+      <div class="bet-panel" id="betPanel">
+        <div class="bet-panel-title">Select Your Bet</div>
+        <div class="bet-options">
+          <button class="bet-option" data-bet="10">10</button>
+          <button class="bet-option" data-bet="25">25</button>
+          <button class="bet-option" data-bet="50">50</button>
+          <button class="bet-option" data-bet="100">100</button>
+          <button class="bet-option" data-bet="250">250</button>
+          <button class="bet-option" data-bet="500">500</button>
+        </div>
+      </div>
+      <div class="action-buttons">
+        <button class="action-btn start-btn" id="startBtn">START GAME</button>
+        <button class="action-btn cashout-btn hidden" id="cashoutBtn">CASH OUT</button>
+        <button class="action-btn continue-btn hidden" id="continueBtn">CONTINUE</button>
+      </div>
       <div class="message-display"><p class="message-text" id="messageText">Select your bet and tap START GAME</p></div>
-      <div class="progress-section hidden" id="progressSection"><div class="progress-header"><span class="progress-label">Progress</span><span class="progress-value" id="pairsMatched">0 / 12</span></div><div class="progress-bar"><div class="progress-fill" id="progressFill" style="width: 0%"></div></div><div class="multiplier-display" id="multiplierDisplay"></div></div>
       <div class="card-grid" id="cardGrid"></div>
     </div>
   </div>
 
   <!-- Win/Lose Overlays -->
-  <div class="win-overlay" id="winOverlay"><div class="win-label">YOU WON</div><div class="win-amount" id="winAmountDisplay">0</div><div class="win-multiplier" id="winMultiplierDisplay">0x</div><button class="play-again-btn" id="playAgainWin">PLAY AGAIN</button></div>
-  <div class="lose-overlay" id="loseOverlay"><div class="lose-icon">💣</div><div class="lose-text">BOOM!</div><div class="lose-subtext" id="loseSubtext">You lost everything</div><button class="play-again-btn" id="playAgainLose">TRY AGAIN</button></div>
+  <div class="win-overlay" id="winOverlay">
+    <div class="win-label">YOU WON</div>
+    <div class="win-amount" id="winAmountDisplay">0</div>
+    <button class="play-again-btn" onclick="resetGame()">PLAY AGAIN</button>
+  </div>
+  <div class="lose-overlay" id="loseOverlay">
+    <div class="lose-icon">💣</div>
+    <div class="lose-text">BOOM!</div>
+    <button class="play-again-btn" onclick="resetGame()">TRY AGAIN</button>
+  </div>
 
-  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
   <script src="script.js"></script>
-
   <script>
-    setTimeout(() => {
-      const splash = document.getElementById('splashScreen');
-      const app = document.getElementById('appContainer');
-      if (splash) { splash.classList.add('fade-out'); setTimeout(() => { splash.style.display = 'none'; if (app) app.classList.add('visible'); }, 700); }
-    }, 3000);
+    setTimeout(function() {
+      var splash = document.getElementById('splashScreen');
+      var app = document.getElementById('appContainer');
+      if (splash) {
+        splash.classList.add('fade-out');
+        setTimeout(function() {
+          splash.style.display = 'none';
+          if (app) app.classList.add('visible');
+        }, 500);
+      }
+    }, 1500);
   </script>
 </body>
 </html>
